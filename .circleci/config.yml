@@ -11,7 +11,7 @@ jobs:
         type: string
     executor: docker/docker
     environment:
-      REGISTRY_HOST: harbor.k8s.library.psu.edu
+      REGISTRY_HOST: harbor.k8s.libraries.psu.edu
       REGISTRY_URL: library/ci-utils
       DOCKER_LOGIN: 'robot$circleci'
     steps:
