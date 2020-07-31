@@ -10,12 +10,13 @@ A container to be used in CircleCI. Includes common utilities, such as  yq, and 
 
 ## yq
 - cli utility to update yaml files within CI. 
-- update the ENV=YQ_VERSION in the dockerfile to update
+- update the ENV YQ_VERSION in the dockerfile to update
 
 
 ## docker 
-- docker comes from apt-get, and is installed on build
+- docker comes from the official github releases
+- update the ENV DOCKERVERSION to update
 
 ## docker-compose 
 - docker-compose comes from the official github releases
-- update the ENV=COMPOSE_VERSION to update
+- update the ENV COMPOSE_VERSION to update
