@@ -7,6 +7,7 @@ ENV DOCKERVERSION=19.03.9
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git curl \
     ca-certificates \
+    openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -sSLO https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKERVERSION}.tgz \
