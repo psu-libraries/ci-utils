@@ -27,4 +27,7 @@ COPY --from=base /bin/yq /bin/
 COPY --from=base /bin/docker-compose /bin
 COPY --from=base /bin/docker /bin
 COPY --from=base /usr/bin/git /bin
+RUN mkdir -p /etc/ssl/certs
+COPY --from=base /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
 
