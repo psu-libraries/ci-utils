@@ -21,13 +21,3 @@ RUN curl -ksSL https://github.com/docker/compose/releases/download/$COMPOSE_VERS
 RUN chmod +x /bin/docker-compose
 RUN chmod +x /bin/yq
 
-FROM ubuntu:20.04 as final
-
-COPY --from=base /bin/yq /bin/
-COPY --from=base /bin/docker-compose /bin
-COPY --from=base /bin/docker /bin
-COPY --from=base /usr/bin/git /bin
-RUN mkdir -p /etc/ssl/certs
-COPY --from=base /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-
-
