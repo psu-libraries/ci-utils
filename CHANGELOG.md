@@ -1,3 +1,5 @@
+#v0.0.4 helm, and helm-push
+- adds helm, and helm push plugin
 #v0.0.3 openssh-client
 - adds openssh-client for ssh-keyscan
 #v0.0.2 Slimify This thing
