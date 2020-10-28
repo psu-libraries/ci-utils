@@ -7,8 +7,11 @@ ENV HELM_VERSION=3.2.4
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git curl \
+    uuid \
+    jq \
     ca-certificates \
     openssh-client \
+    python3 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -sSLO https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKERVERSION}.tgz \
@@ -27,4 +30,5 @@ RUN curl -ksSL https://github.com/docker/compose/releases/download/$COMPOSE_VERS
 RUN helm plugin install https://github.com/chartmuseum/helm-push.git
 RUN chmod +x /bin/docker-compose
 RUN chmod +x /bin/yq
+COPY bin /usr/local/bin
 
