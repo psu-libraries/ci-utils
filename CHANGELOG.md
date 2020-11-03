@@ -1,3 +1,5 @@
+#v1.0.6
+- adds pr-release script
 #v1.0.5
 - adds tag-image script
 #v0.0.4 helm, and helm-push
