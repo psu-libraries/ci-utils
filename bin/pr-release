@@ -9,14 +9,14 @@ git remote set-url origin "http://${GITHUB_USER}:${GITHUB_TOKEN}@$project"
 filename=$1
 git checkout -b $CIRCLE_TAG 
 sed -i -e 's/^\([[:space:]]*\)values: |/\1values:/g' $filename
-yq w "$filename" spec.source.helm.values.image.tag $CIRLCE_TAG -i 
+yq w "$filename" spec.source.helm.values.image.tag $CIRCLE_TAG -i 
 sed -i -e 's/[[:space:]]values:/ values: |/g' "$filename"
 
 git add $filename 
 git commit -m "releae $CIRCLE_TAG"
 git push -u origin $CIRCLE_TAG
 
-gh pr create --title "release $CIRLCE_TAG" --body "relase $CIRLCE_TAG" --base main 
+gh pr create --title "release $CIRCLE_TAG" --body "release $CIRCLE_TAG" --base main 
 
 
 
