@@ -4,6 +4,7 @@ ENV COMPOSE_VERSION=1.26.2
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DOCKERVERSION=19.03.9
 ENV HELM_VERSION=3.2.4
+ENV TRIVYVERSION=0.13.0
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git curl \
@@ -13,6 +14,13 @@ RUN apt-get update \
     openssh-client \
     python3 \
     && rm -rf /var/lib/apt/lists/*
+
+# Download Trivy
+RUN curl -sSLO https://github.com/aquasecurity/trivy/releases/download/v${TRIVYVERSION}/trivy_${TRIVYVERSION}_Linux-64bit.tar.gz \
+  && tar xzvf trivy_${TRIVYVERSION}_Linux-64bit.tar.gz \
+    -C /bin/ trivy \
+  && rm trivy_${TRIVYVERSION}_Linux-64bit.tar.gz
+  
 
 RUN curl -sSLO https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKERVERSION}.tgz \
   && tar xzvf docker-${DOCKERVERSION}.tgz --strip 1 \
