@@ -1,3 +1,5 @@
+#v1.0.7
+- adds trivy vuln scanner
 #v1.0.6
 - adds pr-release script
 #v1.0.5
