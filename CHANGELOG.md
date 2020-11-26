@@ -1,3 +1,5 @@
+#v1.0.8
+- adds build-and-push script, as well as trivy-check script
 #v1.0.7
 - adds trivy vuln scanner
 #v1.0.6

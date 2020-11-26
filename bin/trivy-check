@@ -1,0 +1,26 @@
+#!/bin/bash
+# a wrapper script to check for vulns 
+
+image=${REGISTRY_IMAGE}
+build_args=${BUILD_ARGS:-""}
+tag=${IMAGE_TAG}
+registry=${DOCKER_REGISTRY} 
+docker_login=${DOCKER_LOGIN}
+docker_password=${DOCKER_PASSWORD}
+dockerfile=${DOCKERFILE:-"Dockerfile"}
+context=${DOCKER_CONTEXT:-.} 
+
+
+trivy --exit-code 13 --ignore-unfixed --vuln-type=os ${registry}/${image}:latest
+
+if [ $? == "13" ]; then
+  echo "rebuilding image"
+  export TAG="$(date +%Y%m%d),latest"
+  echo $TAG
+  ./bin/build-and-push
+fi
+
+
+
+
+
