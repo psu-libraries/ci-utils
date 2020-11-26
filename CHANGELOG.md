@@ -1,3 +1,5 @@
+#v1.0.9
+- adds buildargs support to build-and-push
 #v1.0.8
 - adds build-and-push script, as well as trivy-check script
 #v1.0.7
