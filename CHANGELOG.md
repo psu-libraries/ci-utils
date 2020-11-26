@@ -1,3 +1,5 @@
+#v1.0.11
+- make trivy-check executable
 #v1.0.9
 - adds buildargs support to build-and-push
 #v1.0.8
