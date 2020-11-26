@@ -17,7 +17,7 @@ if [ $? == "13" ]; then
   echo "rebuilding image"
   export TAG="$(date +%Y%m%d),latest"
   echo $TAG
-  ./bin/build-and-push
+  /usr/local/bin/build-and-push
 fi
 
 
