@@ -1,3 +1,5 @@
+#v1.0.12
+- adds project reponame in body of pr release
 #v1.0.11
 - make trivy-check executable
 #v1.0.9
