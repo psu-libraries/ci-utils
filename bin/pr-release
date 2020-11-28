@@ -19,7 +19,10 @@ git add $filename
 git commit -m "release $CIRCLE_TAG"
 git push -u origin $CIRCLE_TAG
 
-gh pr create --title "release $CIRCLE_TAG" --body "release $CIRCLE_TAG" --base main 
+gh pr create \
+    --title "release $CIRCLE_TAG" \
+    --body "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME" \
+    --base main 
 
 
 
