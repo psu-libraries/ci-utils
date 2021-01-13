@@ -8,12 +8,16 @@ git remote set-url origin "http://${GITHUB_USER}:${GITHUB_TOKEN}@$project"
 git config --global user.email "${GITHUB_USER}@psu.edu"
 git config --global user.name "${GITHUB_USER}"
 
-
 filename=$1
 git checkout -b $CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG 
 sed -i -e 's/^\([[:space:]]*\)values: |/\1values:/g' $filename
 yq w "$filename" spec.source.helm.values.image.tag $CIRCLE_TAG -i 
 sed -i -e 's/[[:space:]]values:/ values: |/g' "$filename"
+
+if [[ ! $(yq read $filename metadata.annotations.appVersion) == "null" ]]; then 
+  echo "adding appVersion"
+  yq w "$filename" metadata.annotations.appVersion $CIRCLE_TAG -i
+fi
 
 git add $filename 
 git commit -m "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME"
