@@ -1,4 +1,4 @@
-#v1.0.13
+#v2.0.0
 - updates trivy
 #v1.0.12
 - adds project reponame in body of pr release
