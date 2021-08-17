@@ -10,7 +10,7 @@ DOCKER_USERNAME="${DOCKER_USERNAME}"
 DOCKER_PASSWORD="${DOCKER_PASSWORD}"
 TAG_NEW=${CIRCLE_TAG}
 
-MANIFEST=$(curl --silent --fail -H "Accept: ${CONTENT_TYPE}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_OLD}")
+MANIFEST=$(curl -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" --silent --fail -H "Accept: ${CONTENT_TYPE}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_OLD}")
 
 if [ "$?" != "0" ]; then 
   echo "Failed to get manifest for ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD}"

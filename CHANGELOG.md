@@ -1,3 +1,5 @@
+#v2.0.1
+- adds auth to tag-image script
 #v2.0.0
 - updates trivy
 #v1.0.12
