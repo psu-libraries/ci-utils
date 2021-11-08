@@ -13,7 +13,6 @@ jobs:
     environment:
       REGISTRY_HOST: harbor.k8s.libraries.psu.edu
       REGISTRY_URL: library/ci-utils
-      DOCKER_LOGIN: 'robot$circleci'
     steps:
     - setup_remote_docker
     - checkout
@@ -32,6 +31,7 @@ workflows:
   docker_push:
     jobs:
       - build-and-push:
+          context: org-global
           matrix:
             parameters:
               version: ['latest']
@@ -40,6 +40,7 @@ workflows:
               only:
                 - master
       - build-and-push:
+          context: org-global
           matrix:
             parameters:
               version: [ "$CIRCLE_TAG" ]
