@@ -4,7 +4,7 @@ ENV COMPOSE_VERSION=1.29.1
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DOCKERVERSION=19.03.9
 ENV HELM_VERSION=3.2.4
-ENV TRIVYVERSION=0.18.3
+ENV TRIVYVERSION=0.23.0
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git curl \
