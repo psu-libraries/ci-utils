@@ -1,3 +1,5 @@
+#v2.0.2
+- fixes trivy check script
 #v2.0.1
 - adds auth to tag-image script
 #v2.0.0
