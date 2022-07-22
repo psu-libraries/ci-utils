@@ -11,7 +11,7 @@ dockerfile=${DOCKERFILE:-"Dockerfile"}
 context=${DOCKER_CONTEXT:-.} 
 
 
-trivy i --exit-code 13 --ignore-unfixed --vuln-type=os ${registry}/${image}:latest
+trivy i --exit-code 13 --ignore-unfixed --vuln-type=os ${registry}/${image}:latest --skip-db-update
 
 if [ $? == "13" ]; then
   echo "rebuilding image"
@@ -20,7 +20,5 @@ if [ $? == "13" ]; then
   /usr/local/bin/build-and-push
 fi
 
-
-
-
+exit $?
 
