@@ -1,3 +1,5 @@
+#v2.0.5
+- updates trivy
 #v2.0.4
 - fixes trivy check script
 #v2.0.1
