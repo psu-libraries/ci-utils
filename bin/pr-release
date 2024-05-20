@@ -3,7 +3,7 @@
 set -u 
 
 project=$(echo "${CONFIG_REPO}" | sed 's:git@::g' | sed 's/com:/com\//g')
-git remote set-url origin "http://${GITHUB_USER}:${GITHUB_TOKEN}@$project"
+git remote set-url origin "https://${GITHUB_USER}:${GITHUB_TOKEN}@$project"
 
 git config --global user.email "${GITHUB_USER}@psu.edu"
 git config --global user.name "${GITHUB_USER}"
@@ -11,7 +11,11 @@ git config --global user.name "${GITHUB_USER}"
 filename=$1
 git checkout -b $CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG 
 
-yq -i ".spec.source.helm.valuesObject.image.tag=\"$CIRCLE_TAG\"" "$filename"
+sed -i -e 's/^\([[:space:]]*\)values: |/\1values:/g' $filename
+
+yq -i ".spec.source.helm.values.image.tag=\"$CIRCLE_TAG\"" "$filename"
+
+sed -i -e 's/[[:space:]]values:/ values: |/g' "$filename"
 
 git add $filename 
 git commit -m "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME"
