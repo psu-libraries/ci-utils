@@ -13,7 +13,7 @@ git checkout -b $CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG
 
 sed -i -e 's/^\([[:space:]]*\)values: |/\1values:/g' $filename
 
-yq -i ".metadata.annotations.srcRef=\"$CIRCLE_TAG\"" "$filename"
+yq -i ".metadata.annotations.srcRef=\"$CIRCLE_SHA1\"" "$filename"
 
 yq -i ".spec.source.helm.values.image.tag=\"$CIRCLE_TAG\"" "$filename"
 
