@@ -7,39 +7,30 @@ set -e
 image=${REGISTRY_IMAGE}
 build_args=${BUILD_ARGS:-""}
 tag=${IMAGE_TAG}
-registry=${DOCKER_REGISTRY}
+registry=${DOCKER_REGISTRY} 
 docker_login=${DOCKER_LOGIN}
 docker_password=${DOCKER_PASSWORD}
 dockerfile=${DOCKERFILE:-"Dockerfile"}
-context=${DOCKER_CONTEXT:-.}
+context=${DOCKER_CONTEXT:-.} 
 
-# Test docker login
+# Test docker login 
 echo "${docker_password}" | docker login -u "${docker_login}" --password-stdin "${registry}"
 
-# Check for the syntax line in Dockerfile
-syntax_check=$(head -n 1 Dockerfile)
-auth_check=${COMPOSER_AUTH}
-
-# Determine the build command based on the checks
-if [[ "$syntax_check" == "#syntax=docker/dockerfile:1" ]] && [[ -n "$auth_check" ]]; then
-  build_cmd="build --secret id=COMPOSER_AUTH,env=COMPOSER_AUTH "
-else
-  build_cmd="build "
-fi
+build_cmd="build "
 
 tags=$(echo $tag | tr ',' '\n')
 
-for tag in $tags; do
+for tag in $tags; do 
   build_cmd="${build_cmd} -t ${registry}/${image}:${tag}"
 done
 
-if [ "${build_args}" ]; then
+if [ "${build_args}" ]; then 
   build_cmd="${build_cmd} ${build_args}"
 fi
 
 docker ${build_cmd} -f ${dockerfile} ${context}
 
-for tag in $tags; do
+for tag in $tags; do 
   docker push ${registry}/${image}:${tag}
 done
 
