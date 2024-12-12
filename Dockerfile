@@ -1,4 +1,4 @@
-FROM ubuntu:23.04 as base
+FROM ubuntu:25.04 as base
 ENV YQ_VERSION=v4.30.8
 ENV COMPOSE_VERSION=2.15.1
 ENV DEBIAN_FRONTEND=noninteractive
