@@ -23,13 +23,11 @@ RUN curl -sSLO https://github.com/aquasecurity/trivy/releases/download/v${TRIVYV
   
 
 RUN curl -sSLO https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKERVERSION}.tgz \
-  && tar xzvf docker-${DOCKERVERSION}.tgz --strip 1 \
-                 -C /bin docker/docker \
+  && tar xzvf docker-${DOCKERVERSION}.tgz --strip 1 -C /bin docker/docker \
   && rm docker-${DOCKERVERSION}.tgz
 
 RUN curl -sSLO https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz \
-  && tar xvf helm-v${HELM_VERSION}-linux-amd64.tar.gz --strip 1 \
-                 -C /bin/ linux-amd64/helm \
+  && tar xvf helm-v${HELM_VERSION}-linux-amd64.tar.gz --strip 1 -C /bin/ linux-amd64/helm \
   && rm helm-v${HELM_VERSION}-linux-amd64.tar.gz
 
 RUN curl -ksSL -o /bin/yq https://github.com/mikefarah/yq/releases/download/$YQ_VERSION/yq_linux_amd64
