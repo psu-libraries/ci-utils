@@ -1,0 +1,57 @@
+#!/bin/bash
+
+set -u
+
+# configure git
+git config --global user.email "${GITHUB_USER}@psu.edu"
+git config --global user.name "${GITHUB_USER}"
+
+#
+# use new base image
+
+# update image tag in values.yaml
+manifest="charts/journals/values.yaml"
+
+# replace blank lines with marker
+sed -i '/^$/s// #BLANK_LINE/' $manifest
+
+# update image tag
+yq --style=double w $manifest image.tag $CIRCLE_TAG -i
+
+# some versions of yq use this
+# yq -i ".image.tag=\"$CIRCLE_TAG\"" "$manifest"
+
+# restore blank lines
+sed -i "s/ *#BLANK_LINE//g" $manifest
+
+#
+# commit and push new image tag
+git add $manifest
+git commit -m "Adds release for tag: $CIRCLE_TAG"
+git push
+
+#
+# create helm-release with new image tag
+gh release create "helm-$CIRCLE_TAG" \
+    --title "helm-$CIRCLE_TAG" \
+    --notes "$CIRCLE_PROJECT_REPONAME image $CIRCLE_TAG" \
+    --target main
+
+#
+# create PR for new helm-release
+
+# checkout new branch
+git checkout -b $CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG
+
+# update prod manifests to use new helm-release
+find ./clusters/prod/manifests -type f -name "prod.yaml" -print0 | xargs -0 sed -i "s/targetRevision: helm-v\(.*\)/targetRevision: helm-$CIRCLE_TAG/g"
+
+# commit and push new helm-release
+git commit -a -m "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME"
+git push -u origin $CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG
+
+# create pull request
+gh pr create \
+    --title "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME" \
+    --body "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME" \
+    --base main 
