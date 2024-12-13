@@ -28,28 +28,46 @@ jobs:
         registry: $REGISTRY_HOST
         tag: $TAG
 
+  tag-image:
+    environment:
+      REGISTRY_HOST: harbor.k8s.libraries.psu.edu
+      REGISTRY_REPO: library/ci-utils
+      TAG: << parameters.version >>
+    executor: docker/docker
+    parameters:
+      version:
+        type: string
+    steps:
+    - setup_remote_docker
+    - checkout
+      - run:
+          name: "tag image"
+          command: |
+            export REGISTRY_REPO=$REGISTRY_REPO
+            /usr/local/bin/tag-image
+
 workflows:
 
   docker_push:
     jobs:
       - build-and-push:
-          context: org-global
-          matrix:
-            parameters:
-              version: ['latest']
+          context:
+            - org-global
           filters:
             branches:
               only:
                 - master
                 - jimtest
-      - build-and-push:
-          context: org-global
-          matrix:
-            parameters:
-              version: [ "$CIRCLE_TAG" ]
+          version: "latest"
+      - tag-image:
+          context:
+            - org-global
           filters:
             branches:
-              ignore: /.*/
+              ignore:
+                  - /.*/
             tags:
               only:
                 - /^v\d+.*/
+          name: "tag image"
+          version: "$CIRCLE_TAG"
