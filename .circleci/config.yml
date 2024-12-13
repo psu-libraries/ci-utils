@@ -20,7 +20,7 @@ jobs:
     - docker/check:
         registry: $REGISTRY_HOST
     - docker/build:
-        image: $REGISTRY_URL
+        image: $REGISTRY_REPO
         registry: $REGISTRY_HOST
         tag: $TAG
     - docker/push:
