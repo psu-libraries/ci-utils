@@ -9,17 +9,15 @@ jobs:
     environment:
       REGISTRY_HOST: harbor.k8s.libraries.psu.edu
       REGISTRY_REPO: library/ci-utils
-      TAG: << parameters.version >>
+      TAG: <<pipeline.git.revision>>,<<pipeline.git.tag>>
     executor: docker/docker
-    parameters:
-      version:
-        type: string
     steps:
     - setup_remote_docker
     - checkout
     - docker/check:
         registry: $REGISTRY_HOST
     - docker/build:
+        dockerfile: Dockerfile
         image: $REGISTRY_REPO
         registry: $REGISTRY_HOST
         tag: $TAG
@@ -34,11 +32,7 @@ jobs:
     environment:
       REGISTRY_HOST: harbor.k8s.libraries.psu.edu
       REGISTRY_REPO: library/ci-utils
-      TAG: << parameters.version >>
     executor: docker/docker
-    parameters:
-      version:
-        type: string
     steps:
       - add_ssh_keys
       - checkout
@@ -59,7 +53,6 @@ workflows:
               only:
                 - master
                 - jimtest
-          version: "latest"
       - tag-image:
           context:
             - org-global
@@ -71,4 +64,3 @@ workflows:
               only:
                 - /^v\d+.*/
           name: "tag image"
-          version: "$CIRCLE_TAG"
