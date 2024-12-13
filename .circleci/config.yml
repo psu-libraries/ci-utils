@@ -40,10 +40,11 @@ jobs:
     steps:
       - setup_remote_docker
       - checkout
+      - docker/check:
+          registry: $REGISTRY_HOST
       - run:
           name: "tag image"
           command: |
-            export REGISTRY_REPO=$REGISTRY_REPO
             /usr/local/bin/tag-image
 
 workflows:
