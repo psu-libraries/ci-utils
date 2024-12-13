@@ -41,7 +41,7 @@ workflows:
             branches:
               only:
                 - master
-                - circleci-updates
+                - jimtest
       - build-and-push:
           context: org-global
           matrix:
