@@ -29,6 +29,8 @@ jobs:
         tag: $TAG
 
   tag-image:
+    docker:
+      - image: harbor.k8s.libraries.psu.edu/library/ci-utils:$CI_UTILS_IMG_TAG
     environment:
       REGISTRY_HOST: harbor.k8s.libraries.psu.edu
       REGISTRY_REPO: library/ci-utils
@@ -38,10 +40,8 @@ jobs:
       version:
         type: string
     steps:
-      - setup_remote_docker
+      - add_ssh_keys
       - checkout
-      - docker/check:
-          registry: $REGISTRY_HOST
       - run:
           name: "tag image"
           command: |
