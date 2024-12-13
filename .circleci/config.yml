@@ -8,7 +8,8 @@ jobs:
   build-and-push:
     environment:
       REGISTRY_HOST: harbor.k8s.libraries.psu.edu
-      REGISTRY_URL: library/ci-utils
+      REGISTRY_REPO: library/ci-utils
+      TAG: << parameters.version >>
     executor: docker/docker
     parameters:
       version:
@@ -21,11 +22,11 @@ jobs:
     - docker/build:
         image: $REGISTRY_URL
         registry: $REGISTRY_HOST
-        tag: << parameters.version >>
+        tag: $TAG
     - docker/push:
-        image: $REGISTRY_URL
+        image: $REGISTRY_REPO
         registry: $REGISTRY_HOST
-        tag: << parameters.version >>
+        tag: $TAG
 
 workflows:
 
@@ -51,4 +52,4 @@ workflows:
               ignore: /.*/
             tags:
               only:
-                - /.*/
+                - /^v\d+.*/
