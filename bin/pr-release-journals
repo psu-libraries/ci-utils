@@ -15,11 +15,14 @@ manifest="charts/journals/values.yaml"
 # replace blank lines with marker
 sed -i '/^$/s// #BLANK_LINE/' $manifest
 
-# update image tag
-yq --style=double w $manifest image.tag $CIRCLE_TAG -i
+# sometimes this works
+# yq --style=double w $manifest image.tag $CIRCLE_TAG -i
 
-# some versions of yq use this
+# sometimes this works
 # yq -i ".image.tag=\"$CIRCLE_TAG\"" "$manifest"
+
+# copilot suggested this
+yq eval '.image.tag = strenv(CIRCLE_TAG)' -i $manifest
 
 # restore blank lines
 sed -i "s/ *#BLANK_LINE//g" $manifest
