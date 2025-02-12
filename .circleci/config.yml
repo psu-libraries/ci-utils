@@ -1,10 +1,7 @@
 version: 2.1
-
 orbs:
-  docker: circleci/docker@2.6.0
-
+  docker: circleci/docker@2.8.2
 jobs:
-
   build-and-push:
     environment:
       REGISTRY_HOST: harbor.k8s.libraries.psu.edu
@@ -12,20 +9,19 @@ jobs:
       TAG: <<pipeline.git.revision>>,<<pipeline.git.tag>>
     executor: docker/docker
     steps:
-    - setup_remote_docker
-    - checkout
-    - docker/check:
-        registry: $REGISTRY_HOST
-    - docker/build:
-        dockerfile: Dockerfile
-        image: $REGISTRY_REPO
-        registry: $REGISTRY_HOST
-        tag: $TAG
-    - docker/push:
-        image: $REGISTRY_REPO
-        registry: $REGISTRY_HOST
-        tag: $TAG
-
+      - setup_remote_docker
+      - checkout
+      - docker/check:
+          registry: $REGISTRY_HOST
+      - docker/build:
+          dockerfile: Dockerfile
+          image: $REGISTRY_REPO
+          registry: $REGISTRY_HOST
+          tag: $TAG
+      - docker/push:
+          image: $REGISTRY_REPO
+          registry: $REGISTRY_HOST
+          tag: $TAG
   tag-image:
     docker:
       - image: harbor.k8s.libraries.psu.edu/library/ci-utils:$CI_UTILS_IMG_TAG
@@ -40,9 +36,7 @@ jobs:
           name: "tag image"
           command: |
             /usr/local/bin/tag-image
-
 workflows:
-
   docker_push:
     jobs:
       - build-and-push:
@@ -59,7 +53,7 @@ workflows:
           filters:
             branches:
               ignore:
-                  - /.*/
+                - /.*/
             tags:
               only:
                 - /^v\d+.*/
