@@ -52,7 +52,9 @@ gh release create "helm-$CIRCLE_TAG" \
 git checkout -b $CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG
 
 # update prod manifests to use new helm-release
-find ./clusters/prod/manifests -type f -name "prod.yaml" -print0 | xargs -0 sed -i "s/targetRevision: helm-v\(.*\)/targetRevision: helm-$CIRCLE_TAG/g"
+for file in $(find ./clusters/prod/manifests -type f -name "prod.yaml" -print0 | xargs -0); do
+    sed -i "s/targetRevision: helm-v\(.*\)/targetRevision: helm-$CIRCLE_TAG/g" "$file"
+done
 
 # commit and push new helm-release
 git commit -a -m "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME"
