@@ -10,7 +10,7 @@ git config --global user.name "${GITHUB_USER}"
 # use new base image
 
 # update image tag in values.yaml
-if CIRCLE_PROJECT_REPONAME == "assets"
+if [ $CIRCLE_PROJECT_REPONAME == "assets" ]
 then
     manifest="charts/assets/values.yaml"
 else
