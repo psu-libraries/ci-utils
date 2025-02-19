@@ -1,0 +1,29 @@
+#!/bin/bash
+
+set -u
+
+
+#  configure git
+git config --global user.email "${GITHUB_USER}@psu.edu"
+git config --global user.name "${GITHUB_USER}"
+
+
+# change drupal-updater image tag in Dockerfile
+sed -i -E "s/FROM harbor\.k8s(.*)/FROM harbor.k8s.libraries.psu.edu\/library\/$CIRCLE_PROJECT_REPONAME:$CIRCLE_TAG/g" "Dockerfile"
+
+
+# commit and push new image tag to main
+# git commit -a -m "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME"
+# git push -u origin main
+
+
+# for testing - commit and push new branch
+git checkout -b $CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG
+git commit -a -m "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME"
+git push -u origin $CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG
+
+# create pull request
+gh pr create \
+    --title "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME" \
+    --body "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME" \
+    --base main
