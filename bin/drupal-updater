@@ -13,17 +13,17 @@ sed -i -E "s/FROM harbor\.k8s(.*)/FROM harbor.k8s.libraries.psu.edu\/library\/$C
 
 
 # commit and push new image tag to main
-# git commit -a -m "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME"
-# git push -u origin main
-
-
-# for testing - commit and push new branch
-git checkout -b $CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG
 git commit -a -m "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME"
-git push -u origin $CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG
+git push -u origin main
 
-# create pull request
-gh pr create \
-    --title "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME" \
-    --body "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME" \
-    --base main
+
+# for testing - create PR for review
+
+# git checkout -b $CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG
+# git commit -a -m "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME"
+# git push -u origin $CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG
+
+# gh pr create \
+#     --title "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME" \
+#     --body "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME" \
+#     --base main
