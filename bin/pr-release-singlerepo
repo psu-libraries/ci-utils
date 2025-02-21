@@ -10,12 +10,15 @@ git config --global user.name "${GITHUB_USER}"
 # use new base image
 
 # update image tag in values.yaml
-if [ $CIRCLE_PROJECT_REPONAME == "assets" ]
+if [ $CIRCLE_PROJECT_REPONAME == "journal-base" ]
 then
-    manifest="charts/assets/values.yaml"
+    path="journals"
 else
-    manifest="charts/journals/values.yaml"
+    # CIRCLE_PROJECT_REPONAME == 
+    path=$CIRCLE_PROJECT_REPONAME
 fi
+
+manifest="charts/$path/values.yaml"
 
 # replace blank lines with marker
 sed -i '/^$/s// #BLANK_LINE/' $manifest
