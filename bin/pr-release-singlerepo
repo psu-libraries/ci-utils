@@ -14,7 +14,7 @@ if [ $CIRCLE_PROJECT_REPONAME == "journal-base" ]
 then
     path="journals"
 else
-    # CIRCLE_PROJECT_REPONAME == 
+    # assets
     path=$CIRCLE_PROJECT_REPONAME
 fi
 
