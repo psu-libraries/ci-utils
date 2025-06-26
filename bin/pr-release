@@ -10,7 +10,6 @@ usage() {
     echo "  filename    Path to the ArgoCD Application YAML file to update."
     echo
     echo "Environment Variables:"
-    echo "  FROM_TAG    Optional. The tag to replace. Defaults to commit SHA if not set."
     echo "  TO_TAG      Optional. The tag to set. Defaults to CIRCLE_TAG if not set."
     exit 1
 }
@@ -26,29 +25,36 @@ if [[ ! -f "$filename" ]]; then
     exit 1
 fi
 
-TAG_OLD="${FROM_TAG:-${CIRCLE_SHA1}}"
+# Determine the new tag to be used, fallback to CIRCLE_TAG if TO_TAG is not set
 TAG_NEW="${TO_TAG:-$CIRCLE_TAG}"
+
+# Define the repository and branch name for the config repo edits
 branch_name="$CIRCLE_PROJECT_REPONAME-${TAG_NEW}"
+
+# Tag used for the image itself; typically the release tag or fallback to SHA
 image_tag="${TAG_NEW:-${CIRCLE_SHA1}}"
-src_ref="${TAG_NEW:-${CIRCLE_SHA1}}"
 
-echo "Preparing release for tag: ${TAG_NEW}"
-
-echo "Retrieving manifest using current tag: $TAG_OLD"
-
-project=$(echo "${CONFIG_REPO}" | sed 's:git@::g' | sed 's/com:/com\//g')
-git remote set-url origin "https://${GITHUB_USER}:${GITHUB_TOKEN}@$project"
-
+# Git source reference for the deployment (used in container image annotations)
+src_ref="${CIRCLE_SHA1}"
+echo "Preparing git configuration for user: ${GITHUB_USER}"
 git config --global user.email "${GITHUB_USER}@psu.edu"
 git config --global user.name "${GITHUB_USER}"
 
+echo "Preparing the local config repository: ${CONFIG_REPO}"
+project=$(echo "${CONFIG_REPO}" | sed 's:git@::g' | sed 's/com:/com\//g')
+git remote set-url origin "https://${GITHUB_USER}:${GITHUB_TOKEN}@$project"
 git checkout -b "$branch_name"
 
+echo "Preparing manifest to release tag: ${TAG_NEW}"
+# Convert 'values: |' multiline syntax to 'values:' block for compatibility with yq
 sed -i -e 's/^\([[:space:]]*\)values: |/\1values:/g' "$filename"
 
+# Set Helm image tag and annotation to the new tag
+# Update the srcRef annotation to reference the commit SHA
 yq -i ".metadata.annotations.srcRef=\"${src_ref}\"" "$filename"
 yq -i ".spec.source.helm.values.image.tag=\"${image_tag}\"" "$filename"
 
+# Revert 'values:' block back to multiline 'values: |' after yq edits
 sed -i -e 's/[[:space:]]values:/ values: |/g' "$filename"
 
 if git diff --quiet "$filename"; then
