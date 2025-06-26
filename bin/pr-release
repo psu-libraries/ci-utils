@@ -2,31 +2,65 @@
 # updates argocd Appication with tag, submits a pr to the config repo
 set -u 
 
+usage() {
+    echo "Usage: $0 <filename>"
+    echo "Updates ArgoCD Application with tag and submits a PR to the config repo."
+    echo
+    echo "Arguments:"
+    echo "  filename    Path to the ArgoCD Application YAML file to update."
+    echo
+    echo "Environment Variables:"
+    echo "  FROM_TAG    Optional. The tag to replace. Defaults to commit SHA if not set."
+    echo "  TO_TAG      Optional. The tag to set. Defaults to CIRCLE_TAG if not set."
+    exit 1
+}
+
+if [[ $# -eq 0 || "$1" == "--help" ]]; then
+    usage
+fi
+
+filename=$1
+
+if [[ ! -f "$filename" ]]; then
+    echo "Error: File '$filename' does not exist."
+    exit 1
+fi
+
+TAG_OLD="${FROM_TAG:-${CIRCLE_SHA1}}"
+TAG_NEW="${TO_TAG:-$CIRCLE_TAG}"
+branch_name="$CIRCLE_PROJECT_REPONAME-${TAG_NEW}"
+image_tag="${TAG_NEW:-${CIRCLE_SHA1}}"
+src_ref="${TAG_NEW:-${CIRCLE_SHA1}}"
+
+echo "Preparing release for tag: ${TAG_NEW}"
+
+echo "Retrieving manifest using current tag: $TAG_OLD"
+
 project=$(echo "${CONFIG_REPO}" | sed 's:git@::g' | sed 's/com:/com\//g')
 git remote set-url origin "https://${GITHUB_USER}:${GITHUB_TOKEN}@$project"
 
 git config --global user.email "${GITHUB_USER}@psu.edu"
 git config --global user.name "${GITHUB_USER}"
 
-filename=$1
-git checkout -b $CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG 
+git checkout -b "$branch_name"
 
-sed -i -e 's/^\([[:space:]]*\)values: |/\1values:/g' $filename
+sed -i -e 's/^\([[:space:]]*\)values: |/\1values:/g' "$filename"
 
-yq -i ".metadata.annotations.srcRef=\"$CIRCLE_SHA1\"" "$filename"
-
-yq -i ".spec.source.helm.values.image.tag=\"$CIRCLE_TAG\"" "$filename"
+yq -i ".metadata.annotations.srcRef=\"${src_ref}\"" "$filename"
+yq -i ".spec.source.helm.values.image.tag=\"${image_tag}\"" "$filename"
 
 sed -i -e 's/[[:space:]]values:/ values: |/g' "$filename"
 
-git add $filename 
-git commit -m "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME"
-git push -u origin $CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG
+if git diff --quiet "$filename"; then
+    echo "No changes detected in $filename, skipping commit and PR creation."
+    exit 0
+fi
+
+git add "$filename"
+git commit -m "release ${TAG_NEW} for $CIRCLE_PROJECT_REPONAME"
+git push -u origin "$branch_name"
 
 gh pr create \
-    --title "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME" \
-    --body "release $CIRCLE_TAG for $CIRCLE_PROJECT_REPONAME" \
-    --base main 
-
-
-
+    --title "release ${TAG_NEW} for $CIRCLE_PROJECT_REPONAME" \
+    --body "release ${TAG_NEW} for $CIRCLE_PROJECT_REPONAME" \
+    --base main
