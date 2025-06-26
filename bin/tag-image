@@ -48,9 +48,27 @@ echo "  Target tag: ${TAG_NEW}"
 
 MANIFEST=$(curl -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" --silent --fail -H "Accept: ${CONTENT_TYPE}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_OLD}")
 
-if [ "$?" != "0" ]; then 
-  echo "Failed to get manifest for ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD}. Please verify the tag exists and was pushed."
-  exit 1
+if [ "$?" != "0" ]; then
+  echo "Tag ${TAG_OLD} not found. Attempting to find the most recent tag..."
+
+  # Fetch recent artifacts and try to guess the latest tag
+  MOST_RECENT_TAG=$(curl -s -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" \
+    "https://${REGISTRY_NAME}/api/v2.0/projects/${REPOSITORY%/*}/repositories/${REPOSITORY##*/}/artifacts?page_size=1&sort=-push_time" \
+    | jq -r '.[0].tags[0].name')
+
+  if [ -z "$MOST_RECENT_TAG" ] || [ "$MOST_RECENT_TAG" = "null" ]; then
+    echo "Failed to find a recent tag to fall back on."
+    exit 1
+  fi
+
+  echo "Using most recent tag: $MOST_RECENT_TAG"
+  TAG_OLD="$MOST_RECENT_TAG"
+
+  MANIFEST=$(curl -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" --silent --fail -H "Accept: ${CONTENT_TYPE}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_OLD}")
+  if [ "$?" != "0" ]; then
+    echo "Still failed to get manifest for fallback tag: ${TAG_OLD}"
+    exit 1
+  fi
 fi
 
 echo "Tagging ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD} with tag ${TAG_NEW}"
