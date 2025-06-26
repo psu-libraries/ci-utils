@@ -48,9 +48,32 @@ echo "  Target tag: ${TAG_NEW}"
 
 MANIFEST=$(curl -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" --silent --fail -H "Accept: ${CONTENT_TYPE}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_OLD}")
 
-if [ "$?" != "0" ]; then 
-  echo "Failed to get manifest for ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD}. Please verify the tag exists and was pushed."
-  exit 1
+if [ "$?" != "0" ]; then
+  echo "Tag ${TAG_OLD} not found. Attempting to find the most recent tag..."
+
+  # Try to find the most recent tag that starts with the expected prefix
+  TAG_PREFIX="${TAG_OLD%%-*}"
+  MATCHING_TAG=$(curl -s -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" \
+    "https://${REGISTRY_NAME}/api/v2.0/projects/${REPOSITORY%/*}/repositories/${REPOSITORY##*/}/artifacts?page_size=25&sort=-push_time" \
+    | jq -r --arg prefix "$TAG_PREFIX" '
+        map(select(.tags != null))
+        | map(.tags[] | select(.name | startswith($prefix)) | .name)
+        | first
+      ')
+
+  if [ -z "$MATCHING_TAG" ] || [ "$MATCHING_TAG" = "null" ]; then
+    echo "Failed to find a recent tag starting with $TAG_PREFIX to fall back on."
+    exit 1
+  fi
+
+  echo "Using most recent matching tag: $MATCHING_TAG"
+  TAG_OLD="$MATCHING_TAG"
+
+  MANIFEST=$(curl -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" --silent --fail -H "Accept: ${CONTENT_TYPE}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_OLD}")
+  if [ "$?" != "0" ]; then
+    echo "Still failed to get manifest for fallback tag: ${TAG_OLD}"
+    exit 1
+  fi
 fi
 
 echo "Tagging ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD} with tag ${TAG_NEW}"
