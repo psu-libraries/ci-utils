@@ -1,0 +1,117 @@
+#!/bin/bash
+set -euo pipefail
+
+source "$(dirname "$0")/ci-utils-lib.sh"
+
+# image-release-pr: Updates ArgoCD Application with tag and submits a PR to the config repo
+#
+# Purpose: Update an ArgoCD Application manifest with a new image tag and create a pull request.
+#
+# Responsibilities:
+# - Configure git with user credentials and remote URL
+# - Create a new branch for the release
+# - Update the ArgoCD Application manifest with new image tag and source reference
+# - Commit changes and push the branch
+# - Create a pull request for the release
+#
+# Environment Variables:
+# - CONFIG_REPO: Git repository URL (e.g., git@github.com:psu-libraries/drupal-site-config.git) (required)
+# - GITHUB_USER: GitHub username (from org-global context, used for git operations) (required)
+# - GITHUB_TOKEN: GitHub personal access token (from org-global context) (required)
+# - CIRCLE_PROJECT_REPONAME: Name of the project repository (required)
+# - TO_TAG: The new image tag to use in the manifest (required)
+# - CIRCLE_SHA1: Git commit SHA (required)
+# - TRIGGERED_BY: Username of person who triggered the release (optional, for attribution)
+#
+# Usage:
+# image-release-pr <manifest-file-path>
+#
+# Example:
+# image-release-pr clusters/prod/manifests/myproject/prod.yaml
+
+# Check required environment variables
+required_vars=("CONFIG_REPO" "GITHUB_USER" "GITHUB_TOKEN" "CIRCLE_PROJECT_REPONAME" "TO_TAG" "CIRCLE_SHA1")
+for var in "${required_vars[@]}"; do
+  if [[ -z "${!var:-}" ]]; then
+    echo "Error: $var environment variable is required"
+    exit 1
+  fi
+done
+
+# Check that a filename argument was provided
+if [[ $# -eq 0 ]]; then
+  echo "Error: manifest file path is required"
+  echo "Usage: image-release-pr <manifest-file-path>"
+  exit 1
+fi
+
+filename="$1"
+
+if [[ ! -f "$filename" ]]; then
+  echo "Error: manifest file not found: $filename"
+  exit 1
+fi
+
+echo "Updating ArgoCD Application manifest: $filename"
+echo "Project: $CIRCLE_PROJECT_REPONAME"
+echo "Tag: $TO_TAG"
+echo "SHA: $CIRCLE_SHA1"
+
+# Configure git remote URL for authentication
+project=$(echo "${CONFIG_REPO}" | sed 's:git@::g' | sed 's/com:/com\//g')
+git remote set-url origin "https://${GITHUB_USER}:${GITHUB_TOKEN}@$project"
+
+# Configure git user
+git config --global user.email "${GITHUB_USER}@psu.edu"
+git config --global user.name "${GITHUB_USER}"
+
+# Create and checkout release branch
+branch_name="$CIRCLE_PROJECT_REPONAME-$TO_TAG"
+echo "Creating branch: $branch_name"
+git checkout -b "$branch_name"
+
+# Update the manifest file
+echo "Updating manifest with new tag and source reference..."
+
+# Convert values from block scalar to flow scalar for yq processing
+sed -i -e 's/^\([[:space:]]*\)values: |/\1values:/g' "$filename"
+
+# Update source reference and image tag
+yq -i ".metadata.annotations.srcRef=\"$CIRCLE_SHA1\"" "$filename"
+yq -i ".spec.source.helm.values.image.tag=\"$TO_TAG\"" "$filename"
+
+# Convert values back to block scalar
+sed -i -e 's/[[:space:]]values:/ values: |/g' "$filename"
+
+echo "Manifest updated successfully"
+
+# Commit and push changes
+git add "$filename"
+
+# Create commit message with human attribution if available
+if [[ -n "${TRIGGERED_BY:-}" ]]; then
+  COMMIT_MSG="release $TO_TAG for $CIRCLE_PROJECT_REPONAME (triggered by $TRIGGERED_BY)"
+  PR_TITLE="release $TO_TAG for $CIRCLE_PROJECT_REPONAME (triggered by $TRIGGERED_BY)"
+  PR_BODY="release $TO_TAG for $CIRCLE_PROJECT_REPONAME
+
+Triggered by: $TRIGGERED_BY
+Source commit: $CIRCLE_SHA1"
+else
+  COMMIT_MSG="release $TO_TAG for $CIRCLE_PROJECT_REPONAME"
+  PR_TITLE="release $TO_TAG for $CIRCLE_PROJECT_REPONAME"  
+  PR_BODY="release $TO_TAG for $CIRCLE_PROJECT_REPONAME"
+fi
+
+git commit -m "$COMMIT_MSG"
+git push -u origin "$branch_name"
+
+echo "Changes pushed to branch: $branch_name"
+
+# Create pull request
+echo "Creating pull request..."
+gh pr create \
+    --title "$PR_TITLE" \
+    --body "$PR_BODY" \
+    --base main
+
+echo "Pull request created successfully"
