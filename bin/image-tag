@@ -1,0 +1,109 @@
+#!/bin/bash
+set -euo pipefail
+
+source "$(dirname "$0")/ci-utils-lib.sh"
+
+# image-tag: Tag an already-built Docker image with a human-friendly or release-style tag
+#
+# Purpose: Tag an already-built Docker image with a human-friendly or release-style tag (e.g., v1.3.0).
+#
+# Responsibilities:
+# - Deterministically construct the source tag based on branch name and commit SHA
+# - Create a new tag (TO_TAG) pointing to that image's digest (immutable reference)
+#
+# Environment Variables:
+# - REGISTRY_HOST: Harbor registry host (required)
+# - HARBOR_PROJECT: Harbor project name (optional, defaults to "library")
+# - REGISTRY_REPO: Repository/image name (e.g., "accessibility") (required)
+# - DOCKER_USERNAME: Harbor username (required)
+# - DOCKER_PASSWORD: Harbor password (required)
+# - FROM_TAG: Source tag to copy from (optional, will construct from branch/SHA if not provided)
+# - TO_TAG: Destination tag to create (required)
+# - CIRCLE_BRANCH: Git branch name (required if FROM_TAG not provided)
+# - CIRCLE_SHA1: Git commit SHA (required if FROM_TAG not provided)
+
+# Set default for HARBOR_PROJECT if not provided
+HARBOR_PROJECT="${HARBOR_PROJECT:-library}"
+echo "Using Harbor project: $HARBOR_PROJECT"
+
+# Check required environment variables
+required_vars=("REGISTRY_HOST" "REGISTRY_REPO" "DOCKER_USERNAME" "DOCKER_PASSWORD" "TO_TAG")
+for var in "${required_vars[@]}"; do
+  if [[ -z "${!var:-}" ]]; then
+    echo "Error: $var environment variable is required"
+    exit 1
+  fi
+done
+
+# Set Harbor API URL
+HARBOR_API_URL="https://$REGISTRY_HOST/api/v2.0"
+
+# Determine the source tag
+if [[ -n "${FROM_TAG:-}" ]]; then
+  SOURCE_TAG="$FROM_TAG"
+  echo "Using provided FROM_TAG: $SOURCE_TAG"
+else
+  # Check required variables for tag construction
+  if [[ -z "${CIRCLE_BRANCH:-}" ]]; then
+    echo "Error: CIRCLE_BRANCH environment variable is required when FROM_TAG is not provided"
+    exit 1
+  fi
+  
+  if [[ -z "${CIRCLE_SHA1:-}" ]]; then
+    echo "Error: CIRCLE_SHA1 environment variable is required when FROM_TAG is not provided"
+    exit 1
+  fi
+  
+  # Construct the source tag based on the branch and commit SHA
+  # This matches the logic from the build-and-push job
+  if [[ "$CIRCLE_BRANCH" == "main" ]]; then
+    SOURCE_TAG="$CIRCLE_SHA1"
+  else
+    # Use the slugify_branch function to convert branch name to slug
+    SLUG=$(slugify_branch "$CIRCLE_BRANCH")
+    SOURCE_TAG="${SLUG}--$CIRCLE_SHA1"
+  fi
+  
+  echo "Constructed source tag from branch '$CIRCLE_BRANCH' and SHA '$CIRCLE_SHA1': $SOURCE_TAG"
+fi
+
+# Get the digest of the source image using Harbor API
+echo "Getting digest for source image via Harbor API..."
+
+# Get artifact info to retrieve digest
+echo "Getting artifact information..."
+ARTIFACT_INFO=$(curl -s -X GET \
+  "$HARBOR_API_URL/projects/$HARBOR_PROJECT/repositories/$REGISTRY_REPO/artifacts/$SOURCE_TAG" \
+  -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" \
+  -H "Accept: application/json")
+
+# Extract digest from the response
+DIGEST=$(echo "$ARTIFACT_INFO" | grep -o '"digest":"[^"]*"' | cut -d'"' -f4)
+
+if [[ -z "$DIGEST" ]]; then
+  echo "Error: Could not get digest for source image: $REGISTRY_HOST/$HARBOR_PROJECT/$REGISTRY_REPO:$SOURCE_TAG"
+  echo "API Response: $ARTIFACT_INFO"
+  exit 1
+fi
+
+echo "Source image digest: $DIGEST"
+
+# Create the new tag using Harbor API
+echo "Creating new tag: $TO_TAG"
+CREATE_TAG_RESPONSE=$(curl -s -X POST \
+  "$HARBOR_API_URL/projects/$HARBOR_PROJECT/repositories/$REGISTRY_REPO/artifacts/$SOURCE_TAG/tags" \
+  -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d "{\"name\":\"$TO_TAG\"}")
+
+# Check if the tag creation was successful
+if echo "$CREATE_TAG_RESPONSE" | grep -q "error\|Error"; then
+  echo "Error creating tag: $CREATE_TAG_RESPONSE"
+  exit 1
+fi
+
+echo "Successfully tagged image:"
+echo "  Source: $REGISTRY_HOST/$HARBOR_PROJECT/$REGISTRY_REPO:$SOURCE_TAG"
+echo "  Digest: $DIGEST"
+echo "  New tag: $REGISTRY_HOST/$HARBOR_PROJECT/$REGISTRY_REPO:$TO_TAG"
