@@ -67,31 +67,8 @@ else
   echo "Constructed source tag from branch '$CIRCLE_BRANCH' and SHA '$CIRCLE_SHA1': $SOURCE_TAG"
 fi
 
-# Get the digest of the source image using Harbor API
-echo "Getting digest for source image via Harbor API..."
-
-# Get artifact info to retrieve digest
-echo "Getting artifact information..."
-ARTIFACT_INFO=$(curl -s -X GET \
-  "$HARBOR_API_URL/projects/$HARBOR_PROJECT/repositories/$REGISTRY_REPO/artifacts/$SOURCE_TAG" \
-  -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" \
-  -H "Accept: application/json")
-
-echo "Extract digest from the response"
-DIGEST=$(echo "$ARTIFACT_INFO" | grep -o '"digest":"[^"]*"' | cut -d'"' -f4)
-
-if [[ -z "$DIGEST" ]]; then
-  echo "Error: Could not get digest for source image: $REGISTRY_HOST/$HARBOR_PROJECT/$REGISTRY_REPO:$SOURCE_TAG"
-  echo "API Response: $ARTIFACT_INFO"
-  exit 1
-else
-  echo "Successfully retrieved digest: $DIGEST"
-fi
-
-echo "Source image digest: $DIGEST"
-
 # Create the new tag using Harbor API
-echo "Creating new tag: $TO_TAG"
+echo "Creating new tag: $TO_TAG pointing to source tag: $SOURCE_TAG"
 CREATE_TAG_RESPONSE=$(curl -s -X POST \
   "$HARBOR_API_URL/projects/$HARBOR_PROJECT/repositories/$REGISTRY_REPO/artifacts/$SOURCE_TAG/tags" \
   -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" \
@@ -105,7 +82,6 @@ if echo "$CREATE_TAG_RESPONSE" | grep -q "error\|Error"; then
   exit 1
 fi
 
-echo "Successfully tagged image:"
+echo "Successfully created tag:"
 echo "  Source: $REGISTRY_HOST/$HARBOR_PROJECT/$REGISTRY_REPO:$SOURCE_TAG"
-echo "  Digest: $DIGEST"
 echo "  New tag: $REGISTRY_HOST/$HARBOR_PROJECT/$REGISTRY_REPO:$TO_TAG"
