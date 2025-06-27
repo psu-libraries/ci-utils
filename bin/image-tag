@@ -77,13 +77,15 @@ ARTIFACT_INFO=$(curl -s -X GET \
   -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" \
   -H "Accept: application/json")
 
-# Extract digest from the response
+echo "Extract digest from the response"
 DIGEST=$(echo "$ARTIFACT_INFO" | grep -o '"digest":"[^"]*"' | cut -d'"' -f4)
 
 if [[ -z "$DIGEST" ]]; then
   echo "Error: Could not get digest for source image: $REGISTRY_HOST/$HARBOR_PROJECT/$REGISTRY_REPO:$SOURCE_TAG"
   echo "API Response: $ARTIFACT_INFO"
   exit 1
+else
+  echo "Successfully retrieved digest: $DIGEST"
 fi
 
 echo "Source image digest: $DIGEST"
