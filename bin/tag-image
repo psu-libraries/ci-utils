@@ -2,86 +2,21 @@
 # tag an existing image without needing to pull it first 
 set -u
 
-usage() {
-  echo "Usage: $0 [--help]"
-  echo ""
-  echo "This script retags an existing image in a Docker registry without pulling it."
-  echo ""
-  echo "Environment variables required:"
-  echo "  REGISTRY_HOST     - Registry hostname"
-  echo "  REGISTRY_REPO     - Repository name"
-  echo "  DOCKER_USERNAME   - Docker registry username"
-  echo "  DOCKER_PASSWORD   - Docker registry password"
-  echo "  FROM_TAG          - Old tag (optional, overrides CIRCLE_SHA1)"
-  echo "  CIRCLE_SHA1       - Old tag (commit SHA, used if FROM_TAG is not set)"
-  echo "  TO_TAG or CIRCLE_TAG - New tag"
-  echo ""
-  echo "Options:"
-  echo "  --help            - Show this help message"
-}
-
-if [ "$#" -gt 0 ] && [ "$1" = "--help" ]; then
-  usage
-  exit 0
-fi
-
-if [ -z "${REGISTRY_HOST:-}" ] || [ -z "${REGISTRY_REPO:-}" ] || [ -z "${DOCKER_USERNAME:-}" ] || [ -z "${DOCKER_PASSWORD:-}" ]; then
-  echo "Error: One or more required environment variables are missing."
-  echo "Please set REGISTRY_HOST, REGISTRY_REPO, DOCKER_USERNAME, and DOCKER_PASSWORD."
-  exit 1
-fi
-
 REGISTRY_NAME="${REGISTRY_HOST}"
 REPOSITORY="${REGISTRY_REPO}"
-TAG_OLD="${FROM_TAG:-${CIRCLE_SHA1}}"
+TAG_OLD="${CIRCLE_SHA1}"
 CONTENT_TYPE="application/vnd.docker.distribution.manifest.v2+json"
-TAG_NEW="${TO_TAG:-${CIRCLE_TAG}}"
-
-if [ -z "${TAG_NEW}" ]; then
-  echo "Error: No new tag specified via TO_TAG or CIRCLE_TAG."
-  exit 1
-fi
-
-echo "Starting tagging operation:"
-echo "  Source image: ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD}"
-echo "  Target tag: ${TAG_NEW}"
+DOCKER_USERNAME="${DOCKER_USERNAME}"
+DOCKER_PASSWORD="${DOCKER_PASSWORD}"
+TAG_NEW=${CIRCLE_TAG}
 
 MANIFEST=$(curl -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" --silent --fail -H "Accept: ${CONTENT_TYPE}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_OLD}")
 
-if [ "$?" != "0" ]; then
-  echo "Tag ${TAG_OLD} not found. Attempting to find the most recent tag..."
-
-  # Try to find the most recent tag that starts with the expected prefix
-  TAG_PREFIX="${TAG_OLD%%-*}"
-  MATCHING_TAG=$(curl -s -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" \
-    "https://${REGISTRY_NAME}/api/v2.0/projects/${REPOSITORY%/*}/repositories/${REPOSITORY##*/}/artifacts?page_size=25&sort=-push_time" \
-    | jq -r --arg prefix "$TAG_PREFIX" '
-        map(select(.tags != null))
-        | map(.tags[] | select(.name | startswith($prefix)) | .name)
-        | first
-      ')
-
-  if [ -z "$MATCHING_TAG" ] || [ "$MATCHING_TAG" = "null" ]; then
-    echo "Failed to find a recent tag starting with $TAG_PREFIX to fall back on."
-    exit 1
-  fi
-
-  echo "Using most recent matching tag: $MATCHING_TAG"
-  TAG_OLD="$MATCHING_TAG"
-
-  MANIFEST=$(curl -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" --silent --fail -H "Accept: ${CONTENT_TYPE}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_OLD}")
-  if [ "$?" != "0" ]; then
-    echo "Still failed to get manifest for fallback tag: ${TAG_OLD}"
-    exit 1
-  fi
-fi
-
-echo "Tagging ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD} with tag ${TAG_NEW}"
-
-curl --fail -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" -X PUT -H "Content-Type: ${CONTENT_TYPE}" -d "${MANIFEST}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_NEW}"
-if [ "$?" -eq 0 ]; then
-  echo "Successfully tagged image as ${TAG_NEW}"
-else
-  echo "Failed to tag image as ${TAG_NEW}"
+if [ "$?" != "0" ]; then 
+  echo "Failed to get manifest for ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD}"
   exit 1
 fi
+
+echo "tagging ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD} with tag ${TAG_NEW}"
+
+curl --fail -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" -X PUT -H "Content-Type: ${CONTENT_TYPE}" -d "${MANIFEST}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_NEW}"

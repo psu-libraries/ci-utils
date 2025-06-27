@@ -1,4 +1,4 @@
-source "$(dirname "$0")/bin/ci-utils-lib.sh"
+# source "$(dirname "$0")/bin/ci-utils-lib.sh"
 
 # slugify_branch: Convert a branch name into a safe slug.
 # - Special handling: "preview/" becomes "preview_", "update/" becomes "update_"
