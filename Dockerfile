@@ -1,8 +1,9 @@
-FROM ubuntu:25.04 as base
+FROM ubuntu:25.04 AS base
 ENV YQ_VERSION=v4.30.8
 ENV COMPOSE_VERSION=2.15.1
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DOCKERVERSION=20.10.22
+ENV BUILDX_VERSION=v0.12.1
 ENV HELM_VERSION=3.11.0
 ENV TRIVYVERSION=0.36.1
 
@@ -25,6 +26,12 @@ RUN curl -sSLO https://github.com/aquasecurity/trivy/releases/download/v${TRIVYV
 RUN curl -sSLO https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKERVERSION}.tgz \
   && tar xzvf docker-${DOCKERVERSION}.tgz --strip 1 -C /bin docker/docker \
   && rm docker-${DOCKERVERSION}.tgz
+
+# Download Docker Buildx
+RUN mkdir -p ~/.docker/cli-plugins \
+  && curl -sSLO https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64 \
+  && chmod +x buildx-${BUILDX_VERSION}.linux-amd64 \
+  && mv buildx-${BUILDX_VERSION}.linux-amd64 ~/.docker/cli-plugins/docker-buildx
 
 RUN curl -sSLO https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz \
   && tar xvf helm-v${HELM_VERSION}-linux-amd64.tar.gz --strip 1 -C /bin/ linux-amd64/helm \
