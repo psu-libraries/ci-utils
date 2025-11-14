@@ -1,6 +1,6 @@
 FROM ubuntu:25.04 AS base
 ENV YQ_VERSION=v4.30.8
-ENV COMPOSE_VERSION=2.15.1
+ENV COMPOSE_VERSION=v2.15.1
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DOCKERVERSION=20.10.22
 ENV BUILDX_VERSION=v0.12.1
@@ -21,7 +21,7 @@ RUN curl -sSLO https://github.com/aquasecurity/trivy/releases/download/v${TRIVYV
   && tar xzvf trivy_${TRIVYVERSION}_Linux-64bit.tar.gz \
     -C /bin/ trivy \
   && rm trivy_${TRIVYVERSION}_Linux-64bit.tar.gz
-  
+
 
 RUN curl -sSLO https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKERVERSION}.tgz \
   && tar xzvf docker-${DOCKERVERSION}.tgz --strip 1 -C /bin docker/docker \
@@ -38,7 +38,7 @@ RUN curl -sSLO https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz \
   && rm helm-v${HELM_VERSION}-linux-amd64.tar.gz
 
 RUN curl -ksSL -o /bin/yq https://github.com/mikefarah/yq/releases/download/$YQ_VERSION/yq_linux_amd64
-RUN curl -ksSL https://github.com/docker/compose/releases/download/$COMPOSE_VERSION/docker-compose-Linux-x86_64 -o /bin/docker-compose
+RUN curl -ksSL https://github.com/docker/compose/releases/download/$COMPOSE_VERSION/docker-compose-linux-x86_64 -o /bin/docker-compose
 
 RUN helm plugin install https://github.com/chartmuseum/helm-push.git
 RUN chmod +x /bin/docker-compose
