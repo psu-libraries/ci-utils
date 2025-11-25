@@ -8,7 +8,6 @@ ENV YQ_VERSION=v4.48.2
 ENV COMPOSE_VERSION=v2.40.3
 ENV DOCKER_VERSION=29.0.2
 ENV BUILDX_VERSION=v0.30.1
-ENV HELM_VERSION=4.0.0
 ENV TRIVY_VERSION=0.67.2
 
 ## Install base packages
@@ -47,14 +46,6 @@ RUN mkdir -p ~/.docker/cli-plugins \
     && chmod +x buildx \
     && mv buildx ~/.docker/cli-plugins/docker-buildx
 
-## Install Helm
-RUN curl -sSL -o helm.tar.gz \
-        https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz \
-    && tar -xzvf helm.tar.gz -C /tmp \
-    && mv /tmp/linux-amd64/helm /usr/local/bin/helm \
-    && chmod +x /usr/local/bin/helm \
-    && rm -rf helm.tar.gz /tmp/linux-amd64   
-
 ## Install yq for YAML/JSON processing
 RUN curl -sSL -o /usr/local/bin/yq \
         https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 \
@@ -71,9 +62,6 @@ RUN curl -sSL -o /usr/local/bin/yq \
 # RUN curl -sSL -o /usr/local/bin/docker-compose \
 #        https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-x86_64 \
 #    && chmod +x /usr/local/bin/docker-compose
-
-## Install Helm ChartMuseum push plugin (renamed cm-push)
-RUN helm plugin install https://github.com/chartmuseum/helm-push.git
 
 ## Copy any custom scripts from the build context
 COPY bin/ /usr/local/bin/
