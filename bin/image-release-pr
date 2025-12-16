@@ -19,6 +19,7 @@ source "$(dirname "$0")/ci-utils-lib.sh"
 # - GITHUB_USER: GitHub username (from org-global context, used for git operations) (required)
 # - GITHUB_TOKEN: GitHub personal access token (from org-global context) (required)
 # - CIRCLE_PROJECT_REPONAME: Name of the project repository (required)
+# - TO_YAML_TAG_TARGET: The target tag to set in the manifest (default: .spec.source.helm.values.image.tag)
 # - TO_TAG: The new image tag to use in the manifest (required)
 # - CIRCLE_SHA1: Git commit SHA (required)
 # - TRIGGERED_BY: Username of person who triggered the release (optional, for attribution)
@@ -52,8 +53,14 @@ if [[ ! -f "$filename" ]]; then
   exit 1
 fi
 
+if [[ -z "$TO_YAML_TAG_TARGET" ]]; then
+  echo "Warning: TO_YAML_TAG_TARGET not set, defaulting to .spec.source.helm.values.image.tag"
+fi
+TO_YAML_TAG_TARGET="${TO_YAML_TAG_TARGET:-.spec.source.helm.values.image.tag}"
+
 echo "Updating ArgoCD Application manifest: $filename"
 echo "Project: $CIRCLE_PROJECT_REPONAME"
+echo "Key for Tag Value: ${TO_YAML_TAG_TARGET:-.spec.source.helm.values.image.tag}"
 echo "Tag: $TO_TAG"
 echo "SHA: $CIRCLE_SHA1"
 
@@ -78,7 +85,8 @@ sed -i -e 's/^\([[:space:]]*\)values: |/\1values:/g' "$filename"
 
 # Update source reference and image tag
 yq -i ".metadata.annotations.srcRef=\"$CIRCLE_SHA1\"" "$filename"
-yq -i ".spec.source.helm.values.image.tag=\"$TO_TAG\"" "$filename"
+# Update the image tag at the specified YAML path
+yq -i "\"$TO_YAML_TAG_TARGET\"=\"$TO_TAG\"" "$filename"
 
 # Convert values back to block scalar
 sed -i -e 's/[[:space:]]values:/ values: |/g' "$filename"
