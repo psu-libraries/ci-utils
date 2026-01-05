@@ -41,7 +41,7 @@ echo "==== Starting tag-image-singlerepo ===="
 
 REGISTRY_NAME="${REGISTRY_HOST}"
 REPOSITORY="${REGISTRY_REPO}"
-TAG_OLD="${CIRCLE_SHA1}"
+TAG_OLD="${FROM_TAG:-$CIRCLE_SHA1}"
 TAG_NEW="${CIRCLE_TAG}"
 CONTENT_TYPE="application/vnd.docker.distribution.manifest.v2+json"
 DOCKER_USER="${DOCKER_USERNAME}"
