@@ -41,32 +41,40 @@ echo "==== Starting tag-image-singlerepo ===="
 
 REGISTRY_NAME="${REGISTRY_HOST}"
 REPOSITORY="${REGISTRY_REPO}"
-TAG_OLD="${FROM_TAG:-$CIRCLE_SHA1}"
 TAG_NEW="${CIRCLE_TAG}"
 CONTENT_TYPE="application/vnd.docker.distribution.manifest.v2+json"
 DOCKER_USER="${DOCKER_USERNAME}"
 DOCKER_PASS="${DOCKER_PASSWORD}"
 
+# Determine source tag (FROM_TAG or latest Harbor tag)
+if [[ -n "${FROM_TAG:-}" ]]; then
+    TAG_OLD="$FROM_TAG"
+    echo "Using provided FROM_TAG: $TAG_OLD"
+else
+    echo "No FROM_TAG provided, fetching latest tag from Harbor..."
+    TAG_OLD=$(curl -s -u "$DOCKER_USER:$DOCKER_PASS" \
+        "https://${REGISTRY_NAME}/v2/${REPOSITORY}/tags/list" \
+        | jq -r '.tags | sort | .[-1]')
+    if [[ -z "$TAG_OLD" || "$TAG_OLD" == "null" ]]; then
+        echo "Failed to determine latest tag from Harbor. Exiting."
+        exit 1
+    fi
+    echo "Latest Harbor tag found: $TAG_OLD"
+fi
+
 echo "Registry: $REGISTRY_NAME"
 echo "Repository: $REPOSITORY"
-echo "Initial TAG_OLD: $TAG_OLD"
+echo "Old tag TAG_OLD: $TAG_OLD"
 echo "New tag TAG_NEW: $TAG_NEW"
 
 # Debug: print docker username length (not the value)
 echo "DOCKER_USERNAME length: ${#DOCKER_USER}"
 
-# Find latest image build (skip 'skip ci' commits)
-i=0
+# If git is available, optionally compute TAG_OLD from git (optional, keeps previous logic)
 if git rev-parse --git-dir > /dev/null 2>&1; then
-    message=$(git log --pretty=oneline --skip=$i -1 | grep 'skip ci' || true)
-    while [[ $message ]]; do
-        ((i++))
-        message=$(git log --pretty=oneline --skip=$i -1 | grep 'skip ci' || true)
-    done
-    TAG_OLD=$(git log --pretty=oneline --skip=$i -1 --format=%H)
-    echo "Computed TAG_OLD from git: $TAG_OLD"
+    echo "Git repository detected."
 else
-    echo "No git repository detected, using TAG_OLD = $TAG_OLD from CIRCLE_SHA1"
+    echo "No git repository detected. Skipping git-based tag computation."
 fi
 
 # Get manifest for the old tag
