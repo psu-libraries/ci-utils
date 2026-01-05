@@ -1,33 +1,116 @@
+# #!/bin/bash
+# # tag an existing image without needing to pull it first 
+# set -u
+
+# REGISTRY_NAME="${REGISTRY_HOST}"
+# REPOSITORY="${REGISTRY_REPO}"
+# TAG_OLD="${CIRCLE_SHA1}"
+# CONTENT_TYPE="application/vnd.docker.distribution.manifest.v2+json"
+# DOCKER_USERNAME="${DOCKER_USERNAME}"
+# DOCKER_PASSWORD="${DOCKER_PASSWORD}"
+# TAG_NEW=${CIRCLE_TAG}
+
+# # find latest image build
+# i=0
+# message=$(git log --pretty=oneline --skip=$i -1 | grep 'skip ci')
+# while [[ $message ]]
+# do
+#     ((i++))
+#     message=$(git log --pretty=oneline --skip=$i -1 | grep 'skip ci')
+# done
+# TAG_OLD=$(git log --pretty=oneline --skip=$i -1 --format=%H)
+
+# # get manifest of latest image build
+# MANIFEST=$(curl -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" --silent --fail -H "Accept: ${CONTENT_TYPE}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_OLD}")
+
+# if [ "$?" != "0" ]; then 
+#   echo "Failed to get manifest for ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD}"
+#   exit 1
+# fi
+
+# echo "tagging ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD} with tag ${TAG_NEW}"
+
+# curl --fail -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" -X PUT -H "Content-Type: ${CONTENT_TYPE}" -d "${MANIFEST}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_NEW}"
+
+
 #!/bin/bash
-# tag an existing image without needing to pull it first 
-set -u
+# tag an existing image without needing to pull it first
+set -euo pipefail
+
+echo "==== Starting tag-image-singlerepo ===="
 
 REGISTRY_NAME="${REGISTRY_HOST}"
 REPOSITORY="${REGISTRY_REPO}"
 TAG_OLD="${CIRCLE_SHA1}"
+TAG_NEW="${CIRCLE_TAG}"
 CONTENT_TYPE="application/vnd.docker.distribution.manifest.v2+json"
-DOCKER_USERNAME="${DOCKER_USERNAME}"
-DOCKER_PASSWORD="${DOCKER_PASSWORD}"
-TAG_NEW=${CIRCLE_TAG}
+DOCKER_USER="${DOCKER_USERNAME}"
+DOCKER_PASS="${DOCKER_PASSWORD}"
 
-# find latest image build
+echo "Registry: $REGISTRY_NAME"
+echo "Repository: $REPOSITORY"
+echo "Initial TAG_OLD: $TAG_OLD"
+echo "New tag TAG_NEW: $TAG_NEW"
+
+# Debug: print docker username length (not the value)
+echo "DOCKER_USERNAME length: ${#DOCKER_USER}"
+
+# Find latest image build (skip 'skip ci' commits)
 i=0
-message=$(git log --pretty=oneline --skip=$i -1 | grep 'skip ci')
-while [[ $message ]]
-do
-    ((i++))
-    message=$(git log --pretty=oneline --skip=$i -1 | grep 'skip ci')
-done
-TAG_OLD=$(git log --pretty=oneline --skip=$i -1 --format=%H)
-
-# get manifest of latest image build
-MANIFEST=$(curl -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" --silent --fail -H "Accept: ${CONTENT_TYPE}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_OLD}")
-
-if [ "$?" != "0" ]; then 
-  echo "Failed to get manifest for ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD}"
-  exit 1
+if git rev-parse --git-dir > /dev/null 2>&1; then
+    message=$(git log --pretty=oneline --skip=$i -1 | grep 'skip ci' || true)
+    while [[ $message ]]; do
+        ((i++))
+        message=$(git log --pretty=oneline --skip=$i -1 | grep 'skip ci' || true)
+    done
+    TAG_OLD=$(git log --pretty=oneline --skip=$i -1 --format=%H)
+    echo "Computed TAG_OLD from git: $TAG_OLD"
+else
+    echo "No git repository detected, using TAG_OLD = $TAG_OLD from CIRCLE_SHA1"
 fi
 
-echo "tagging ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD} with tag ${TAG_NEW}"
+# Get manifest for the old tag
+echo "Fetching manifest for $REPOSITORY:$TAG_OLD ..."
+MANIFEST=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" -u "$DOCKER_USER:$DOCKER_PASS" \
+  -H "Accept: ${CONTENT_TYPE}" \
+  "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_OLD}")
 
-curl --fail -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" -X PUT -H "Content-Type: ${CONTENT_TYPE}" -d "${MANIFEST}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_NEW}"
+# Separate manifest and HTTP status
+HTTP_STATUS=$(echo "$MANIFEST" | grep HTTP_STATUS | awk -F: '{print $2}')
+MANIFEST_BODY=$(echo "$MANIFEST" | sed '/HTTP_STATUS:/d')
+
+echo "HTTP status from manifest request: $HTTP_STATUS"
+
+if [[ "$HTTP_STATUS" != "200" ]]; then
+    echo "Failed to get manifest for ${REPOSITORY}:${TAG_OLD}"
+    echo "Full response:"
+    echo "$MANIFEST_BODY"
+    exit 1
+fi
+
+echo "Successfully retrieved manifest, size: $(echo "$MANIFEST_BODY" | wc -c) bytes"
+
+# Tag the image
+echo "Tagging $REPOSITORY:$TAG_OLD -> $TAG_NEW ..."
+TAG_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" -u "$DOCKER_USER:$DOCKER_PASS" \
+  -X PUT \
+  -H "Content-Type: ${CONTENT_TYPE}" \
+  -d "$MANIFEST_BODY" \
+  "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_NEW}")
+
+HTTP_STATUS_TAG=$(echo "$TAG_RESPONSE" | grep HTTP_STATUS | awk -F: '{print $2}')
+TAG_BODY=$(echo "$TAG_RESPONSE" | sed '/HTTP_STATUS:/d')
+
+echo "HTTP status from tag request: $HTTP_STATUS_TAG"
+
+if [[ "$HTTP_STATUS_TAG" != "201" && "$HTTP_STATUS_TAG" != "200" ]]; then
+    echo "Failed to create new tag ${TAG_NEW}"
+    echo "Full response:"
+    echo "$TAG_BODY"
+    exit 1
+fi
+
+echo "Successfully tagged:"
+echo "  Source: ${REGISTRY_NAME}/${REPOSITORY}:${TAG_OLD}"
+echo "  New tag: ${REGISTRY_NAME}/${REPOSITORY}:${TAG_NEW}"
+echo "==== Done tag-image-singlerepo ===="
