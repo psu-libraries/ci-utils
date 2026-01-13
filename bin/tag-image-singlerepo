@@ -3,6 +3,8 @@
 #
 # USED BY: https://github.com/psu-libraries/assets
 #
+#  this was renamed image-tag-singlerepo and can be deleted
+#    after assets and journals config.yml files are updated
 
 
 # # tag an existing image without needing to pull it first 

@@ -4,7 +4,8 @@
 # USED BY: https://github.com/psu-libraries/assets
 # USED BY: https://github.com/psu-libraries/journal-base
 #
-
+#  this was renamed image-release-pr-singlerepo and can be deleted
+#    after assets and journals config.yml files are updated
 
 set -u
 
