@@ -1,4 +1,32 @@
 #!/bin/bash
+
+#
+# USED BY: catalog/psulib_blacklight/
+#          ci-utils
+#          drupal/chicago
+#          drupal/roam
+#          drupal/policy-web
+#          drupal/dsf-web
+#          drupal/drupal-site-template
+#          drupal/ahd
+#          drupal/dnps
+#          drupal/cikard
+#          drupal/efnep
+#          drupal/fourh
+#          drupal/play
+#          drupal/rotrou
+#          drupal/survivalmargins
+#          drupal/utopia
+#          etda/etda_workflow
+#          etda/etda_explore
+#          fam-tools/fams_tools
+#          pana/panewsarchive
+#          rmd/researcher-metadata
+#          scholarsphere/scholarsphere
+#          static-drupal/static-openpublishing
+#
+
+
 # tag an existing image without needing to pull it first 
 set -u
 

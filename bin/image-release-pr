@@ -1,4 +1,10 @@
 #!/bin/bash
+
+#
+# USED BY: all the new rke2/uldev deployments
+#
+
+
 set -euo pipefail
 
 source "$(dirname "$0")/ci-utils-lib.sh"
