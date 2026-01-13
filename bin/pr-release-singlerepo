@@ -1,5 +1,11 @@
 #!/bin/bash
 
+#
+# USED BY: https://github.com/psu-libraries/assets
+# USED BY: https://github.com/psu-libraries/journal-base
+#
+
+
 set -u
 
 # configure git

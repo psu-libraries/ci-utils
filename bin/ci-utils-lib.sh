@@ -1,3 +1,11 @@
+#
+# USED BY: image-release-pr  (all the new rke2/uldev deployments)
+#          image-tag         (all the new rke2/uldev deployments)
+#          slugify-branch
+#     they all source "$(dirname "$0")/bin/ci-utils-lib.sh"
+#
+
+
 # source "$(dirname "$0")/bin/ci-utils-lib.sh"
 
 # slugify_branch: Convert a branch name into a safe slug.

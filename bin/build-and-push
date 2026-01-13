@@ -1,4 +1,11 @@
 #!/bin/bash
+
+#
+# USED BY: https://github.com/psu-libraries/bibliographies-base
+#          /usr/local/bin/trivy-check
+#
+
+
 # A script to build and push an image
 
 set -u

@@ -1,0 +1,39 @@
+#!/bin/bash
+
+#
+# USED BY: https://github.com/psu-libraries/assets
+#
+
+
+set -u
+
+REGISTRY_NAME="${REGISTRY_HOST}"
+REPOSITORY="${REGISTRY_REPO}"
+TAG_OLD="${CIRCLE_SHA1}"
+CONTENT_TYPE="application/vnd.docker.distribution.manifest.v2+json"
+DOCKER_USERNAME="${DOCKER_USERNAME}"
+DOCKER_PASSWORD="${DOCKER_PASSWORD}"
+TAG_NEW=${CIRCLE_TAG}
+
+# find latest image build
+i=0
+message=$(git log --pretty=oneline --skip=$i -1 | grep 'skip ci')
+while [[ $message ]]
+do
+    ((i++))
+    message=$(git log --pretty=oneline --skip=$i -1 | grep 'skip ci')
+done
+TAG_OLD=$(git log --pretty=oneline --skip=$i -1 --format=%H)
+
+# get manifest of latest image build
+MANIFEST=$(curl -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" --silent --fail -H "Accept: ${CONTENT_TYPE}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_OLD}")
+
+if [ "$?" != "0" ]; then 
+    echo "Failed to get manifest for ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD}"
+    exit 1
+fi
+
+echo "tagging ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD} with tag ${TAG_NEW}"
+
+curl --fail -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" -X PUT -H "Content-Type: ${CONTENT_TYPE}" -d "${MANIFEST}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_NEW}"
+

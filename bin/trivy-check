@@ -1,4 +1,11 @@
 #!/bin/bash
+
+#
+# USED BY: https://github.com/psu-libraries/bibliographies-base
+#          /usr/local/bin/trivy-check
+#
+
+
 # a wrapper script to check for vulns 
 
 image=${REGISTRY_IMAGE}
