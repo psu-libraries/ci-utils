@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# Helper to tag an image and create release PRs across one or more clusters.
+# Meant to replace the inline multi-cluster logic used in CircleCI jobs.
+
+set -euo pipefail
+
+source "$(dirname "$0")/ci-utils-lib.sh"
+
+usage() {
+  cat <<EOF
+Usage: image-release-for-clusters [clusters]
+
+Environment (preferred):
+  - clusters (required): comma-separated list of clusters (e.g. "prod,uldev")
+  - CONFIG_REPO_NAME (optional): directory name of the checked-out config repo
+  - CONFIG_REPO (optional): git URL to infer CONFIG_REPO_NAME
+  - CIRCLE_PROJECT_REPONAME (preferred): name of the project; used for manifest path
+  - FROM_TAG / TO_TAG (required by image-tag / image-release-pr)
+
+If the new script is not available in CI, the pipeline will fall back to the original inline implementation.
+EOF
+}
+
+if [[ "${1:-}" =~ ^(-h|--help)$ ]]; then
+  usage
+  exit 0
+fi
+
+# clusters may be provided as first arg or via env var 'clusters'
+clusters_input="${1:-${clusters:-}}"
+if [[ -z "$clusters_input" ]]; then
+  echo "Error: cluster list not provided. Set env var 'clusters' or pass as first argument."
+  usage
+  exit 1
+fi
+
+# check that helper commands exist
+for cmd in /usr/local/bin/image-tag /usr/local/bin/image-release-pr; do
+  if [[ ! -x "$cmd" ]]; then
+    echo "Error: required helper not found or not executable: $cmd"
+    exit 1
+  fi
+done
+
+# Ensure CONFIG_REPO_NAME is defined or infer it
+if [[ -z "${CONFIG_REPO_NAME:-}" ]]; then
+  if [[ -n "${CONFIG_REPO:-}" ]]; then
+    inferred_name="$(basename "$CONFIG_REPO")"
+    inferred_name="${inferred_name%.git}"
+    echo "CONFIG_REPO_NAME not set — inferring from CONFIG_REPO -> $inferred_name"
+    export CONFIG_REPO_NAME="$inferred_name"
+  else
+    # try to find a local *-config directory
+    matches=( *-config )
+    if [[ ${#matches[@]} -eq 1 && -d "${matches[0]}" ]]; then
+      echo "CONFIG_REPO_NAME not set — inferring from local directory -> ${matches[0]}"
+      export CONFIG_REPO_NAME="${matches[0]}"
+    else
+      echo "Error: CONFIG_REPO_NAME is not set and cannot be inferred."
+      echo "Set CONFIG_REPO_NAME (or CONFIG_REPO) in the job environment or ensure the repo is checked-out."
+      exit 1
+    fi
+  fi
+fi
+
+if [[ ! -d "$CONFIG_REPO_NAME" ]]; then
+  echo "Error: config repo directory '$CONFIG_REPO_NAME' not found (did 'clone-config-repo' run?)"
+  exit 1
+fi
+
+# Ensure REGISTRY_REPO is set and exported (fallback to CIRCLE_PROJECT_REPONAME)
+export REGISTRY_REPO="${REGISTRY_REPO:-${CIRCLE_PROJECT_REPONAME:-}}"
+if [[ -z "${REGISTRY_REPO}" ]]; then
+  echo "Error: REGISTRY_REPO (or CIRCLE_PROJECT_REPONAME) is required"
+  exit 1
+fi
+echo "Using REGISTRY_REPO -> $REGISTRY_REPO"
+
+# Ensure TRIGGERED_BY is set and exported for attribution (best-effort)
+export TRIGGERED_BY="${TRIGGERED_BY:-${CIRCLE_USERNAME:-}}"
+
+echo "Starting multi-cluster image release"
+echo "  Config repo dir: $CONFIG_REPO_NAME"
+echo "  Registry repo:   $REGISTRY_REPO"
+echo "  Clusters:        $clusters_input"
+
+# Run image-tag first (same behavior as original inline step)
+echo "Running /usr/local/bin/image-tag"
+/usr/local/bin/image-tag
+
+# Prepare cluster array and process each manifest
+clusters_cleaned="${clusters_input// /}"
+IFS=',' read -ra CLUSTERS_ARR <<< "$clusters_cleaned"
+
+cd "$CONFIG_REPO_NAME"
+
+had_error=0
+for cluster in "${CLUSTERS_ARR[@]}"; do
+  export TARGET_CLUSTER="$cluster"
+  manifest_path="clusters/$TARGET_CLUSTER/manifests/$REGISTRY_REPO/prod.yaml"
+  echo "Processing cluster: $TARGET_CLUSTER -> $manifest_path"
+
+  if [[ ! -f "$manifest_path" ]]; then
+    echo "Error: manifest not found: $manifest_path"
+    had_error=1
+    continue
+  fi
+
+  if ! /usr/local/bin/image-release-pr "$manifest_path"; then
+    echo "Error: image-release-pr failed for $manifest_path"
+    had_error=1
+  fi
+done
+
+if [[ $had_error -ne 0 ]]; then
+  echo "One or more releases failed"
+  exit 1
+fi
+
+echo "All releases processed successfully"
+exit 0
