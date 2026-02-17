@@ -16,6 +16,9 @@ Environment (preferred):
   - CONFIG_REPO (optional): git URL to infer CONFIG_REPO_NAME
   - CIRCLE_PROJECT_REPONAME (preferred): name of the project; used for manifest path
   - FROM_TAG / TO_TAG (required by image-tag / image-release-pr)
+  - TO_YAML_TAG_TARGET (optional): YAML path for where the image tag lives in the manifest
+    (passed through to image-release-pr; default inside image-release-pr is
+    `.spec.source.helm.values.image.tag`)
 
 If the new script is not available in CI, the pipeline will fall back to the original inline implementation.
 EOF
@@ -99,6 +102,7 @@ for cluster in "${CLUSTERS_ARR[@]}"; do
   export TARGET_CLUSTER="$cluster"
   manifest_path="clusters/$TARGET_CLUSTER/manifests/$REGISTRY_REPO/prod.yaml"
   echo "Processing cluster: $TARGET_CLUSTER -> $manifest_path"
+  echo "  TO_YAML_TAG_TARGET: ${TO_YAML_TAG_TARGET:-(default)}"
 
   if [[ ! -f "$manifest_path" ]]; then
     echo "Error: manifest not found: $manifest_path"
@@ -106,7 +110,7 @@ for cluster in "${CLUSTERS_ARR[@]}"; do
     continue
   fi
 
-  if ! /usr/local/bin/image-release-pr "$manifest_path"; then
+  if ! TO_YAML_TAG_TARGET="${TO_YAML_TAG_TARGET:-}" /usr/local/bin/image-release-pr "$manifest_path"; then
     echo "Error: image-release-pr failed for $manifest_path"
     had_error=1
   fi

@@ -59,7 +59,7 @@ if [[ ! -f "$filename" ]]; then
   exit 1
 fi
 
-if [[ -z "$TO_YAML_TAG_TARGET" ]]; then
+if [[ -z "${TO_YAML_TAG_TARGET:-}" ]]; then
   echo "Warning: TO_YAML_TAG_TARGET not set, defaulting to .spec.source.helm.values.image.tag"
 fi
 TO_YAML_TAG_TARGET="${TO_YAML_TAG_TARGET:-.spec.source.helm.values.image.tag}"
