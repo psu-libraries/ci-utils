@@ -91,8 +91,22 @@ sed -i -e 's/^\([[:space:]]*\)values: |/\1values:/g' "$filename"
 
 # Update source reference and image tag
 yq -i ".metadata.annotations.srcRef=\"$CIRCLE_SHA1\"" "$filename"
+
+# Show current image tag (before) so failures are easy to debug
+echo "DEBUG: image tag (before) -> $(yq "$TO_YAML_TAG_TARGET" "$filename" || echo 'null')"
+
 # Update the image tag at the specified YAML path
-yq -i "\"$TO_YAML_TAG_TARGET\"=\"$TO_TAG\"" "$filename"
+yq -i "$TO_YAML_TAG_TARGET=\"$TO_TAG\"" "$filename"
+
+# Verify the tag was updated (fail-fast if not)
+updated_tag=$(yq "$TO_YAML_TAG_TARGET" "$filename" || true)
+echo "DEBUG: image tag (after)  -> ${updated_tag:-null}"
+if [[ "${updated_tag:-}" != "$TO_TAG" ]]; then
+  echo "Error: image tag update failed — expected '$TO_TAG' at '$TO_YAML_TAG_TARGET' but found '${updated_tag:-null}'"
+  # restore block-scalar form to keep file consistent before exiting
+  sed -i -e 's/[[:space:]]values:/ values: |/g' "$filename" || true
+  exit 1
+fi
 
 # Convert values back to block scalar
 sed -i -e 's/[[:space:]]values:/ values: |/g' "$filename"
