@@ -10,7 +10,8 @@ jobs:
     executor:
       name: docker/docker
     steps:
-      - setup_remote_docker
+      - setup_remote_docker:
+          version: edge
       - checkout
       - docker/check:
           registry: $REGISTRY_HOST
