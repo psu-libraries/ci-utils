@@ -27,11 +27,17 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Trivy vulnerability scanner
+# RUN curl -sSL -o trivy.tar.gz \
+#         https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz \
+#     && tar -xzvf trivy.tar.gz trivy -C /usr/local/bin \
+#     && chmod +x /usr/local/bin/trivy \
+#     && rm trivy.tar.gz
 RUN curl -sSL -o trivy.tar.gz \
         https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz \
-    && tar -xzvf trivy.tar.gz trivy -C /usr/local/bin \
+    && tar -xzvf trivy.tar.gz trivy \
+    && mv trivy /usr/local/bin/trivy \
     && chmod +x /usr/local/bin/trivy \
-    && rm trivy.tar.gz   
+    && rm trivy.tar.gz
 
 # Install the Docker CLI
 RUN curl -sSLo docker.tgz \
