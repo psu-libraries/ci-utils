@@ -59,10 +59,11 @@ if [[ ! -f "$filename" ]]; then
   exit 1
 fi
 
+
 if [[ -z "${TO_YAML_TAG_TARGET:-}" ]]; then
   echo "Warning: TO_YAML_TAG_TARGET not set, defaulting to .spec.source.helm.values.image.tag"
 fi
-TO_YAML_TAG_TARGET="${TO_YAML_TAG_TARGET:-.spec.source.helm.values.image.tag}"
+: "${TO_YAML_TAG_TARGET:=.spec.source.helm.values.image.tag}"
 
 echo "Updating ArgoCD Application manifest: $filename"
 echo "Project: $CIRCLE_PROJECT_REPONAME"
