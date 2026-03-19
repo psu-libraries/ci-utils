@@ -1,0 +1,102 @@
+# Multi-stage Dockerfile that packs only the required binaries and their
+# shared libraries into a small Distroless final image.
+# Build with: docker build -f Dockerfile.distroless -t ci-utils:distroless .
+
+FROM ubuntu:25.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV YQ_VERSION=v4.48.2
+ENV DOCKER_VERSION=29.0.2
+ENV BUILDX_VERSION=v0.30.1
+ENV TRIVY_VERSION=0.69.2
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git \
+        curl \
+        uuid-runtime \
+        jq \
+        ca-certificates \
+        openssh-client \
+        python3 \
+        bash \
+        tar \
+        binutils \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# install trivy
+RUN curl -sSL -o trivy.tar.gz \
+        https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz \
+    && tar -xzvf trivy.tar.gz trivy \
+    && mv trivy /usr/local/bin/trivy \
+    && chmod +x /usr/local/bin/trivy \
+    && rm trivy.tar.gz
+
+# docker cli
+RUN curl -sSLo docker.tgz \
+        https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz \
+    && tar -xzvf docker.tgz --strip-components=1 -C /usr/local/bin docker/docker \
+    && rm docker.tgz
+
+# buildx (install to /usr/local/bin for easy discovery)
+RUN curl -sSLo /usr/local/bin/docker-buildx \
+        https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64 \
+    && chmod +x /usr/local/bin/docker-buildx
+
+# yq
+RUN curl -sSL -o /usr/local/bin/yq \
+        https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 \
+    && chmod +x /usr/local/bin/yq
+
+# copy any custom scripts the repo provides
+COPY bin/ /usr/local/bin/
+
+# Pack required binaries, shared libs and CA certs into /pack preserving paths.
+RUN set -eux; \
+    PACK=/pack; mkdir -p $PACK; \
+    # strip CLI binaries to reduce image size where possible
+    strip --strip-all /usr/local/bin/trivy /usr/local/bin/docker || true; \
+    strip --strip-all /usr/local/bin/yq /usr/local/bin/docker-buildx || true; \
+    bins="/usr/local/bin/trivy /usr/local/bin/docker /usr/local/bin/yq /usr/local/bin/docker-buildx /usr/local/bin/*"; \
+    # also include some common tools that CI scripts often expect (keep bash)
+    bins="$bins /usr/bin/git /usr/bin/curl /usr/bin/uuidgen /usr/bin/jq /usr/bin/python3 /usr/bin/ssh /bin/bash"; \
+    for b in $bins; do \
+        for f in $b; do \
+            if [ -e "$f" ]; then \
+                mkdir -p $PACK$(dirname $f); cp -L "$f" $PACK$f; \
+                # copy dependencies
+                if ldd "$f" >/dev/null 2>&1; then \
+                    for lib in $(ldd "$f" 2>/dev/null | awk '/=>/ {print $3} /ld-linux/ {print $1}'); do \
+                        [ -z "$lib" ] && continue; \
+                        mkdir -p $PACK$(dirname $lib); cp -L "$lib" $PACK$lib || true; \
+                    done; \
+                fi; \
+            fi; \
+        done; \
+    done; \
+    # CA certs
+    mkdir -p $PACK/etc/ssl; cp -r /etc/ssl/certs $PACK/etc/ssl/; \
+    # make sure resolver config is present if needed at runtime
+    cp -L /etc/resolv.conf $PACK/etc/resolv.conf || true; \
+    # provide a POSIX shell for CI (symlink /bin/sh -> /bin/bash)
+    mkdir -p $PACK/bin; if [ -e /bin/bash ]; then cp -L /bin/bash $PACK/bin/bash; ln -sf /bin/bash $PACK/bin/sh; fi
+
+FROM gcr.io/distroless/cc
+
+# Copy the packed filesystem from the builder. The files were copied with their
+# absolute paths into /pack, so we extract them into the root FS by copying
+# the directory contents.
+## Copy packed directories explicitly. Some distroless base images have
+## non-directory entries (or symlinks) at /bin or other paths which makes
+## copying the whole tree fail. Copying the common directories individually
+## avoids the "cannot copy to non-directory" error.
+COPY --from=builder /pack/usr /usr
+COPY --from=builder /pack/bin /bin
+COPY --from=builder /pack/lib /lib
+COPY --from=builder /pack/lib64 /lib64
+COPY --from=builder /pack/etc /etc
+
+# No ENTRYPOINT so users can run whatever tool they need from the image,
+# e.g. `docker run --rm ci-utils:distroless trivy --version` or
+# `docker run --rm --entrypoint /usr/local/bin/yq ci-utils:distroless yq --version`.
