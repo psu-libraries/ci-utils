@@ -120,7 +120,7 @@ git add "$filename"
 # Create commit message with human attribution if available
 if [[ -n "${TRIGGERED_BY:-}" ]]; then
   COMMIT_MSG="release $TO_TAG for $CIRCLE_PROJECT_REPONAME (triggered by $TRIGGERED_BY)"
-  PR_TITLE="release $TO_TAG for $CIRCLE_PROJECT_REPONAME (triggered by $TRIGGERED_BY)"
+  PR_TITLE="release $TO_TAG${TARGET_CLUSTER:+ ($TARGET_CLUSTER)} for $CIRCLE_PROJECT_REPONAME (triggered by $TRIGGERED_BY)"
   PR_BODY="release $TO_TAG for $CIRCLE_PROJECT_REPONAME
 
 Triggered by: $TRIGGERED_BY
