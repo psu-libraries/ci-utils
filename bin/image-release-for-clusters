@@ -97,8 +97,15 @@ IFS=',' read -ra CLUSTERS_ARR <<< "$clusters_cleaned"
 
 cd "$CONFIG_REPO_NAME"
 
+base_branch="$(git rev-parse --abbrev-ref HEAD)"
+
 had_error=0
 for cluster in "${CLUSTERS_ARR[@]}"; do
+  echo "Resetting config repo to $base_branch before processing cluster: $cluster"
+  git checkout "$base_branch"
+  git reset --hard "origin/$base_branch"
+  git clean -fd
+
   export TARGET_CLUSTER="$cluster"
   manifest_path="clusters/$TARGET_CLUSTER/manifests/$REGISTRY_REPO/prod.yaml"
   echo "Processing cluster: $TARGET_CLUSTER -> $manifest_path"
