@@ -80,7 +80,7 @@ git config --global user.email "${GITHUB_USER}@psu.edu"
 git config --global user.name "${GITHUB_USER}"
 
 # Create and checkout release branch
-branch_name="$CIRCLE_PROJECT_REPONAME-$TO_TAG"
+branch_name="$CIRCLE_PROJECT_REPONAME${TARGET_CLUSTER:+-$TARGET_CLUSTER}-$TO_TAG"
 echo "Creating branch: $branch_name"
 git checkout -b "$branch_name"
 
