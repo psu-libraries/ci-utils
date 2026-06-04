@@ -8,31 +8,59 @@ source "$(dirname "$0")/ci-utils-lib.sh"
 
 usage() {
   cat <<EOF
-Usage: image-release-for-clusters [clusters]
+Usage: image-release-for-clusters [--clusters <list>] [--manifest-path <path>]
 
-Environment (preferred):
-  - clusters (required): comma-separated list of clusters (e.g. "prod,uldev")
+Flags:
+  --clusters <list>        Comma-separated list of clusters (e.g. "prod,ulprod").
+                           Overrides the 'clusters' env var.
+  --manifest-path <path>   Override the default manifest path per cluster.
+                           Use {cluster} as a placeholder for the cluster name.
+                           Default: clusters/{cluster}/manifests/<REGISTRY_REPO>/prod.yaml
+                           Example: --manifest-path "clusters/{cluster}/manifests/prod.yaml"
+
+Environment (fallback):
+  - clusters (required if --clusters not passed): comma-separated list of clusters
   - CONFIG_REPO_NAME (optional): directory name of the checked-out config repo
   - CONFIG_REPO (optional): git URL to infer CONFIG_REPO_NAME
   - CIRCLE_PROJECT_REPONAME (preferred): name of the project; used for manifest path
   - FROM_TAG / TO_TAG (required by image-tag / image-release-pr)
   - TO_YAML_TAG_TARGET (optional): YAML path for where the image tag lives in the manifest
-    (passed through to image-release-pr; default inside image-release-pr is
-    `.spec.source.helm.values.image.tag`)
-
-If the new script is not available in CI, the pipeline will fall back to the original inline implementation.
+    (passed through to image-release-pr; default: .spec.source.helm.values.image.tag)
 EOF
 }
 
-if [[ "${1:-}" =~ ^(-h|--help)$ ]]; then
-  usage
-  exit 0
-fi
+# Parse flags
+manifest_path_override=""
+clusters_flag=""
 
-# clusters may be provided as first arg or via env var 'clusters'
-clusters_input="${1:-${clusters:-}}"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --manifest-path)
+      manifest_path_override="$2"
+      shift 2
+      ;;
+    --clusters)
+      clusters_flag="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      # Legacy: treat first positional arg as clusters
+      if [[ -z "$clusters_flag" ]]; then
+        clusters_flag="$1"
+      fi
+      shift
+      ;;
+  esac
+done
+
+# clusters may be provided via --clusters flag, positional arg, or env var 'clusters'
+clusters_input="${clusters_flag:-${clusters:-}}"
 if [[ -z "$clusters_input" ]]; then
-  echo "Error: cluster list not provided. Set env var 'clusters' or pass as first argument."
+  echo "Error: cluster list not provided. Use --clusters flag or set env var 'clusters'."
   usage
   exit 1
 fi
@@ -86,6 +114,9 @@ echo "Starting multi-cluster image release"
 echo "  Config repo dir: $CONFIG_REPO_NAME"
 echo "  Registry repo:   $REGISTRY_REPO"
 echo "  Clusters:        $clusters_input"
+if [[ -n "$manifest_path_override" ]]; then
+  echo "  Manifest path:   $manifest_path_override (override)"
+fi
 
 # Run image-tag first (same behavior as original inline step)
 echo "Running /usr/local/bin/image-tag"
@@ -107,7 +138,11 @@ for cluster in "${CLUSTERS_ARR[@]}"; do
   git clean -fd
 
   export TARGET_CLUSTER="$cluster"
-  manifest_path="clusters/$TARGET_CLUSTER/manifests/$REGISTRY_REPO/prod.yaml"
+  if [[ -n "$manifest_path_override" ]]; then
+    manifest_path="${manifest_path_override//\{cluster\}/$TARGET_CLUSTER}"
+  else
+    manifest_path="clusters/$TARGET_CLUSTER/manifests/$REGISTRY_REPO/prod.yaml"
+  fi
   echo "Processing cluster: $TARGET_CLUSTER -> $manifest_path"
   echo "  TO_YAML_TAG_TARGET: ${TO_YAML_TAG_TARGET:-(default)}"
 
