@@ -88,7 +88,7 @@ git checkout -b "$branch_name"
 echo "Updating manifest with new tag and source reference..."
 
 # Convert values from block scalar to flow scalar for yq processing
-sed -i -e 's/^\([[:space:]]*\)values: |/\1values:/g' "$filename"
+strip_helm_values_pipe "$filename"
 
 # Update source reference and image tag
 yq -i ".metadata.annotations.srcRef=\"$CIRCLE_SHA1\"" "$filename"
@@ -105,12 +105,12 @@ echo "DEBUG: image tag (after)  -> ${updated_tag:-null}"
 if [[ "${updated_tag:-}" != "$TO_TAG" ]]; then
   echo "Error: image tag update failed — expected '$TO_TAG' at '$TO_YAML_TAG_TARGET' but found '${updated_tag:-null}'"
   # restore block-scalar form to keep file consistent before exiting
-  sed -i -e 's/[[:space:]]values:/ values: |/g' "$filename" || true
+  restore_helm_values_pipe "$filename" || true
   exit 1
 fi
 
 # Convert values back to block scalar
-sed -i -e 's/[[:space:]]values:/ values: |/g' "$filename"
+restore_helm_values_pipe "$filename"
 
 echo "Manifest updated successfully"
 
