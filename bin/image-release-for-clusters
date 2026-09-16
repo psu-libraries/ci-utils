@@ -1,0 +1,167 @@
+#!/usr/bin/env bash
+# Helper to tag an image and create release PRs across one or more clusters.
+# Meant to replace the inline multi-cluster logic used in CircleCI jobs.
+
+set -euo pipefail
+
+source "$(dirname "$0")/ci-utils-lib.sh"
+
+usage() {
+  cat <<EOF
+Usage: image-release-for-clusters [--clusters <list>] [--manifest-path <path>]
+
+Flags:
+  --clusters <list>        Comma-separated list of clusters (e.g. "prod,ulprod").
+                           Overrides the 'clusters' env var.
+  --manifest-path <path>   Override the default manifest path per cluster.
+                           Use {cluster} as a placeholder for the cluster name.
+                           Default: clusters/{cluster}/manifests/<REGISTRY_REPO>/prod.yaml
+                           Example: --manifest-path "clusters/{cluster}/manifests/prod.yaml"
+
+Environment (fallback):
+  - clusters (required if --clusters not passed): comma-separated list of clusters
+  - CONFIG_REPO_NAME (optional): directory name of the checked-out config repo
+  - CONFIG_REPO (optional): git URL to infer CONFIG_REPO_NAME
+  - CIRCLE_PROJECT_REPONAME (preferred): name of the project; used for manifest path
+  - FROM_TAG / TO_TAG (required by image-tag / image-release-pr)
+  - TO_YAML_TAG_TARGET (optional): YAML path for where the image tag lives in the manifest
+    (passed through to image-release-pr; default: .spec.source.helm.values.image.tag)
+EOF
+}
+
+# Parse flags
+manifest_path_override=""
+clusters_flag=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --manifest-path)
+      manifest_path_override="$2"
+      shift 2
+      ;;
+    --clusters)
+      clusters_flag="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      # Legacy: treat first positional arg as clusters
+      if [[ -z "$clusters_flag" ]]; then
+        clusters_flag="$1"
+      fi
+      shift
+      ;;
+  esac
+done
+
+# clusters may be provided via --clusters flag, positional arg, or env var 'clusters'
+clusters_input="${clusters_flag:-${clusters:-}}"
+if [[ -z "$clusters_input" ]]; then
+  echo "Error: cluster list not provided. Use --clusters flag or set env var 'clusters'."
+  usage
+  exit 1
+fi
+
+# check that helper commands exist
+for cmd in /usr/local/bin/image-tag /usr/local/bin/image-release-pr; do
+  if [[ ! -x "$cmd" ]]; then
+    echo "Error: required helper not found or not executable: $cmd"
+    exit 1
+  fi
+done
+
+# Ensure CONFIG_REPO_NAME is defined or infer it
+if [[ -z "${CONFIG_REPO_NAME:-}" ]]; then
+  if [[ -n "${CONFIG_REPO:-}" ]]; then
+    inferred_name="$(basename "$CONFIG_REPO")"
+    inferred_name="${inferred_name%.git}"
+    echo "CONFIG_REPO_NAME not set — inferring from CONFIG_REPO -> $inferred_name"
+    export CONFIG_REPO_NAME="$inferred_name"
+  else
+    # try to find a local *-config directory
+    matches=( *-config )
+    if [[ ${#matches[@]} -eq 1 && -d "${matches[0]}" ]]; then
+      echo "CONFIG_REPO_NAME not set — inferring from local directory -> ${matches[0]}"
+      export CONFIG_REPO_NAME="${matches[0]}"
+    else
+      echo "Error: CONFIG_REPO_NAME is not set and cannot be inferred."
+      echo "Set CONFIG_REPO_NAME (or CONFIG_REPO) in the job environment or ensure the repo is checked-out."
+      exit 1
+    fi
+  fi
+fi
+
+if [[ ! -d "$CONFIG_REPO_NAME" ]]; then
+  echo "Error: config repo directory '$CONFIG_REPO_NAME' not found (did 'clone-config-repo' run?)"
+  exit 1
+fi
+
+# Ensure REGISTRY_REPO is set and exported (fallback to CIRCLE_PROJECT_REPONAME)
+export REGISTRY_REPO="${REGISTRY_REPO:-${CIRCLE_PROJECT_REPONAME:-}}"
+if [[ -z "${REGISTRY_REPO}" ]]; then
+  echo "Error: REGISTRY_REPO (or CIRCLE_PROJECT_REPONAME) is required"
+  exit 1
+fi
+echo "Using REGISTRY_REPO -> $REGISTRY_REPO"
+
+# Ensure TRIGGERED_BY is set and exported for attribution (best-effort)
+export TRIGGERED_BY="${TRIGGERED_BY:-${CIRCLE_USERNAME:-}}"
+
+echo "Starting multi-cluster image release"
+echo "  Config repo dir: $CONFIG_REPO_NAME"
+echo "  Registry repo:   $REGISTRY_REPO"
+echo "  Clusters:        $clusters_input"
+if [[ -n "$manifest_path_override" ]]; then
+  echo "  Manifest path:   $manifest_path_override (override)"
+fi
+
+# Run image-tag first (same behavior as original inline step)
+echo "Running /usr/local/bin/image-tag"
+/usr/local/bin/image-tag
+
+# Prepare cluster array and process each manifest
+clusters_cleaned="${clusters_input// /}"
+IFS=',' read -ra CLUSTERS_ARR <<< "$clusters_cleaned"
+
+cd "$CONFIG_REPO_NAME"
+
+base_branch="$(git rev-parse --abbrev-ref HEAD)"
+
+had_error=0
+for cluster in "${CLUSTERS_ARR[@]}"; do
+  echo "Resetting config repo to $base_branch before processing cluster: $cluster"
+  git checkout "$base_branch"
+  git reset --hard "origin/$base_branch"
+  git clean -fd
+
+  export TARGET_CLUSTER="$cluster"
+  if [[ -n "$manifest_path_override" ]]; then
+    manifest_path="${manifest_path_override//\{cluster\}/$TARGET_CLUSTER}"
+  else
+    manifest_path="clusters/$TARGET_CLUSTER/manifests/$REGISTRY_REPO/prod.yaml"
+  fi
+  echo "Processing cluster: $TARGET_CLUSTER -> $manifest_path"
+  echo "  TO_YAML_TAG_TARGET: ${TO_YAML_TAG_TARGET:-(default)}"
+
+  if [[ ! -f "$manifest_path" ]]; then
+    echo "Error: manifest not found: $manifest_path"
+    had_error=1
+    continue
+  fi
+
+  if ! TO_YAML_TAG_TARGET="${TO_YAML_TAG_TARGET:-}" /usr/local/bin/image-release-pr "$manifest_path"; then
+    echo "Error: image-release-pr failed for $manifest_path"
+    had_error=1
+  fi
+done
+
+if [[ $had_error -ne 0 ]]; then
+  echo "One or more releases failed"
+  exit 1
+fi
+
+echo "All releases processed successfully"
+exit 0

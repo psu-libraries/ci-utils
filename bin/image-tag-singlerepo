@@ -26,7 +26,7 @@ done
 TAG_OLD=$(git log --pretty=oneline --skip=$i -1 --format=%H)
 
 # get manifest of latest image build
-MANIFEST=$(curl -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" --silent --fail -H "Accept: ${CONTENT_TYPE}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_OLD}")
+MANIFEST=$(curl -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" --silent --fail -H "Accept: ${CONTENT_TYPE}" "https://${REGISTRY_NAME}/v2/library/${REPOSITORY}/manifests/${TAG_OLD}")
 
 if [ "$?" != "0" ]; then 
     echo "Failed to get manifest for ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD}"
@@ -35,5 +35,4 @@ fi
 
 echo "tagging ${REGISTRY_HOST}/${REGISTRY_REPO}:${TAG_OLD} with tag ${TAG_NEW}"
 
-curl --fail -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" -X PUT -H "Content-Type: ${CONTENT_TYPE}" -d "${MANIFEST}" "https://${REGISTRY_NAME}/v2/${REPOSITORY}/manifests/${TAG_NEW}"
-
+curl --fail -u "$DOCKER_USERNAME:$DOCKER_PASSWORD" -X PUT -H "Content-Type: ${CONTENT_TYPE}" -d "${MANIFEST}" "https://${REGISTRY_NAME}/v2/library/${REPOSITORY}/manifests/${TAG_NEW}"
