@@ -4,7 +4,7 @@ orbs:
 jobs:
   build-and-push:
     environment:
-      REGISTRY_HOST: harbor.k8s.libraries.psu.edu
+      REGISTRY_HOST: harbor.libraries.psu.edu
       REGISTRY_REPO: library/ci-utils
       TAG: <<pipeline.git.revision>>,<<pipeline.git.tag>>
     executor:
@@ -25,9 +25,9 @@ jobs:
           tag: $TAG
   tag-image:
     docker:
-      - image: harbor.k8s.libraries.psu.edu/library/ci-utils:$CI_UTILS_IMG_TAG
+      - image: harbor.libraries.psu.edu/library/ci-utils:$CI_UTILS_IMG_TAG
     environment:
-      REGISTRY_HOST: harbor.k8s.libraries.psu.edu
+      REGISTRY_HOST: harbor.libraries.psu.edu
       REGISTRY_REPO: library/ci-utils
     executor: docker/docker
     steps:
